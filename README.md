@@ -1,17 +1,14 @@
 # Urb
 Is a Unity-compatible language inpired by ruby/forth.
 
-####1. Intend:
- - close to ruby, compatible to Unity C#. 
- - a C# Transformer from the mix of ruby/forth.
- - i will stop if we all have no fun.
+####1. Intend
+ - a C# Transformer from the mix of ruby/forth to let us have fun. I will halt this project if we don't.
  
-####2. Feature
- - compiled .net assembly
- - fast as C#, sweet as Ruby
- - ruby block/keyword with forth postfix statement.
- - C# compatible class/inherite/function/syntax
- - no complexity
+####2. Core Features
+ - Ruby syntax & block.
+ - Forth Statement order.
+ - C# source code & assembly output.
+ - Unity Editor intergration.
  
 ####3. Mechanism
 
