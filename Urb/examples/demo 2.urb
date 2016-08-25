@@ -1,0 +1,34 @@
+﻿require System
+require UnityEngine
+
+class Player < MonoBehaviour
+
+  @dict = new Dictionary (String:String) 
+  @stack = new Stack (Object) 
+  	  
+  def test
+    condition:
+      i += 1
+      Console.WriteLine i
+      if i < 10
+        jump :condition
+      end
+      result = i
+
+    Console.WriteLine "Good bye"
+    result
+  end
+
+  def set_position x:float y:float z:float
+   transform.position = new Vector3
+   transform.position.x + x,
+   transform.position.y + y,
+   transform.position.z + z
+  end
+	   
+  def Update
+   if Input.GetKey KeyCode.DownArrow
+     set_position 0f -0.1f 0f
+   end
+  end
+end
