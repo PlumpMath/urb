@@ -6,7 +6,7 @@ class Player < MonoBehaviour
   @dict = new Dictionary (String:String) 
   @stack = new Stack (Object) 
   	  
-  def test
+  def test:void
     condition:
       i += 1
       Console.WriteLine i
@@ -19,14 +19,15 @@ class Player < MonoBehaviour
     result
   end
 
-  def set_position x:float y:float z:float
+  def set_position:void x:float y:float z:float
    transform.position = new Vector3
-   transform.position.x + x,
-   transform.position.y + y,
-   transform.position.z + z
+   	  transform.position.x + x
+   	  transform.position.y + y
+   	  transform.position.z + z 
+   	 end
   end
 	   
-  def Update
+  def Update:void
    if Input.GetKey KeyCode.DownArrow
      set_position 0f -0.1f 0f
    end

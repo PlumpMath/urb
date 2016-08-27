@@ -38,5 +38,12 @@
     <Compile Include="UrbCore.cs" />
     <Compile Include="Token.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="examples\demo.urb" />
+    <None Include="examples\demo 2.urb" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="examples\" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
