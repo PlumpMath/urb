@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
@@ -45,6 +46,9 @@ namespace Urb
 
 			// (a)
 			@"(?<parens>(\(.*\)))|" +
+			// [block]
+			@"(?<open_brace>\[)|" +
+			@"(?<close_brace>\])|" +
 			// string " "
 			@"(?<string>\"".*\"")|" +
 			// pair of a:b
@@ -62,6 +66,9 @@ namespace Urb
 			// boolean
 			@"(?<boolean_compare>[\>|\<|\=|\==|\>=|\<=])|" +
 			@"(?<boolean_condition>[\|\||\&\&])|" +
+
+			//compiler_directive
+			@"(?<compiler_directive>pop|jump)|" +
 
 			//special_form
 			@"(?<special_form>def|end|class|require|if|new)|" +
@@ -128,7 +135,8 @@ namespace Urb
 			csharp_blocks.Add(line);
 		}
 
-		private string current_special_form = String.Empty;
+		private Stack<List<Token>> statement_stack = new Stack<List<Token>>();
+		private Stack<string> postpond_stack = new Stack<string>();
 
 		// Well, I think we should play dirty :P 
 		private void Lex(List<Token> token_list)
@@ -150,87 +158,60 @@ namespace Urb
 						if (acc.Count == 0) break;
 						var line = acc.ToArray();
 						blocks.Add(acc);
-						switch (line[0].Name)
+
+						// Prefix
+						PrefixForm(line);
+
+						// Postfix
+						switch (line[line.Length - 1].Name)
 						{
 							case "special_form":
-								if (line[0].Value != "end")
-									current_special_form = line[0].Value;
-								switch (line[0].Value)
+								// we got "if" and "new" here.
+								switch (line[line.Length - 1].Value)
 								{
-									case "require":
-										// require a => Using a;
-										AddSource(string.Format("using {0};", line[1].Value));
-										break;
-									case "class":
-										//InspectLine(acc);
-										switch (line.Length)
-										{
-											case 2: // class A {} 
-												AddSource(string.Format("class {0} {{", line[1].Value));
-												break;
-											// class A: B
-											case 4:
-												AddSource(string.Format("class {0} : {1} {{", line[1].Value, line[3].Value));
-												break;
-
-											default:
-												// leave multi inheritance later.
-												break;
-										}
-										break;
-									case "def":
-										Console.WriteLine();
-										// def a:void b:float c:int
-										// but first we need to reverse all of them a:void -> void a
-										var pairs = new List<string>();
-										foreach (var word in line)
-										{
-											if (word.Name == "pair")
-											{
-												var pair = word.Value.Split(new char[] { ':' });
-												var new_pair = pair[1] + " " + pair[0];
-												pairs.Add(new_pair);
-												Console.Write("{0} ", new_pair);
-											}
-										}
-										// well now we got all pairs ! let add (, , , ) { 
-										var def_type_name = pairs[0]; // public void something_i_give_up_on_you
-																	  // now for the rest of them with commas:
-										var pairs_string = String.Empty;
-										if (pairs.Count > 1)
-											for (int j = 1; j < pairs.Count; j++)
-											{
-												pairs_string += pairs[j];
-												if (j != pairs.Count - 1) pairs_string += ", ";
-											}
-										// now into braces (){
-										AddSource(string.Format(
-											"public {0} ( {1} ) {{", def_type_name, pairs_string));
-										break;
-
 									case "new":
-
+										if (postpond_stack.Count == 0)
+										{
+											// something here.
+											foreach (var word in line)
+											{
+												Console.Write("{0} ", word);
+											}
+										}
+										else {
+											// something else here.
+										}
 										break;
 
-									case "do":
-
-										break;
-
-									case "end":
-
-										/* The idea here is pushing all nested things into a stack,
-										 * then everytimes there's an end, it pop out to match with 
-										 * topmost element, then we output each end depend on that.
-										 * 
-										 */
+									case "if":
+										// conds here.
 										break;
 
 								}
 								break;
+
+							case "compiler_directive":
+								// we got "pop" and "jump" here.
+								break;
+
+							case "operator":
+								// all numberic ops
+								break;
+							case "boolean_compare":
+								// all logic ops
+								break;
+
+							case "boolean_condition":
+								// all cond combinator
+								break;
+
 							default:
-								//Console.WriteLine("Not implemented {0}", line[0]);
+								// the rest are literal statements.
 								break;
 						}
+
+						//Statements
+
 
 						// Clear Acc and new line.
 						acc = new List<Token>();
@@ -252,18 +233,108 @@ namespace Urb
 				Console.WriteLine(line);
 			}
 		}
-		private class IfBlock
-		{
-			/************************************
-			 * If 1 + 1 > 2 && true || false 
-			 *  line 1
-			 *  line 2
-			 *  line 3
-			 * end
-			 */
-			public IfBlock(List<Token> conditions, List<List<Token>> lines)
-			{
 
+		private void PrefixForm(Token[] line)
+		{
+			switch (line[0].Name)
+			{
+				case "special_form":
+					if (line[0].Value != "end")
+						SpecialForm(line);
+					else // close braces everywhere. 
+						AddSource("}");
+					break;
+
+				case "label":
+					AddSource(
+						new CultureInfo("en-US").TextInfo.ToTitleCase
+						(line[0].Value));
+					break;
+
+				case "open_brace":
+					/************************************************
+					 *  We make room for new block of lines here.
+					 * 
+					 ************************************************/
+
+					break;
+				case "close_brace":
+					/************************************************
+					*  Then transform it here -> (a, b, c); as a statement.
+					*  then push to a postpond stack.
+					************************************************/
+
+					break;
+				default:
+					//Console.WriteLine("Not implemented {0}", line[0]);
+					break;
+			}
+
+
+		}
+
+		private void SpecialForm(Token[] line)
+		{
+			switch (line[0].Value)
+			{
+				case "require":
+					// require a => Using a;
+					AddSource(string.Format("using {0};", line[1].Value));
+					break;
+				case "class":
+					//InspectLine(acc);
+					switch (line.Length)
+					{
+						case 2: // class A {} 
+							AddSource(string.Format("class {0} {{", line[1].Value));
+							break;
+						// class A: B
+						case 4:
+							AddSource(string.Format("class {0} : {1} {{", line[1].Value, line[3].Value));
+							break;
+
+						default:
+							// leave multi inheritance later.
+							break;
+					}
+					break;
+				case "def":
+					Console.WriteLine();
+					// def a:void b:float c:int
+					// but first we need to reverse all of them a:void -> void a
+					var pairs = new List<string>();
+					foreach (var word in line)
+					{
+						if (word.Name == "pair")
+						{
+							var pair = word.Value.Split(new char[] { ':' });
+							var new_pair = pair[1] + " " + pair[0];
+							pairs.Add(new_pair);
+							Console.Write("{0} ", new_pair);
+						}
+					}
+					// well now we got all pairs ! let add (, , , ) { 
+					var def_type_name = pairs[0]; // public void something_i_give_up_on_you
+												  // now for the rest of them with commas:
+					var pairs_string = String.Empty;
+					if (pairs.Count > 1)
+						for (int j = 1; j < pairs.Count; j++)
+						{
+							pairs_string += pairs[j];
+							if (j != pairs.Count - 1) pairs_string += ", ";
+						}
+					// now into braces (){
+					AddSource(string.Format(
+						"public {0} ( {1} ) {{", def_type_name, pairs_string));
+					break;
+
+				case "new":
+
+					break;
+
+				case "do":
+
+					break;
 			}
 		}
 	}
