@@ -15,25 +15,19 @@ class Player < MonoBehaviour
       i Console.WriteLine
       -1 i < && 10 i > if 
         :condition jump
-      end
       i result =
 	  
     goodbye:
       "Good bye" Console.WriteLine
-      result
-  end
-
+    
   def set_position:void x:float y:float z:float
-   [ transform.position.x x +
-     transform.position.y y +
-     transform.position.z z + 
-   ] Vector3 new
-   transform.position pop
-  end
-	   
+    transform.position.x x +
+    transform.position.y y +
+    transform.position.z z + 
+      Vector3 new
+    transform.position pop
+  	   
   def Update:void
-   KeyCode.DownArrow Input.GetKey if
-     0f -0.1f 0f set_position
-   end
-  end
-end
+    KeyCode.DownArrow Input.GetKey if
+      0f -0.1f 0f set_position
+  

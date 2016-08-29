@@ -41,6 +41,7 @@
   <ItemGroup>
     <None Include="examples\demo.urb" />
     <None Include="examples\demo 2.urb" />
+    <None Include="examples\demo 3.urb" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="examples\" />

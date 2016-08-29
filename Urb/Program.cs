@@ -11,7 +11,7 @@ namespace Urb
 			Console.WriteLine("* Urb :: A Rubylike post-fix language compiler *");
 
 			// Test Source:
-			string test = File.ReadAllText("../../examples/demo.urb");
+			string test = File.ReadAllText("../../examples/demo 3.urb");
 			urb.Parse(test, isDebug: false);
 
 			//Console.ReadLine ();

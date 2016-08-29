@@ -47,8 +47,8 @@ namespace Urb
 			// (a)
 			@"(?<parens>(\(.*\)))|" +
 			// [block]
-			@"(?<open_brace>\[)|" +
-			@"(?<close_brace>\])|" +
+			@"(?<open_brace>\{)|" +
+			@"(?<close_brace>\})|" +
 			// string " "
 			@"(?<string>\"".*\"")|" +
 			// pair of a:b
@@ -71,10 +71,10 @@ namespace Urb
 			@"(?<compiler_directive>pop|jump)|" +
 
 			//special_form
-			@"(?<special_form>def|end|class|require|if|new)|" +
+			@"(?<special_form>definition|end|class|require|if|new)|" +
 
 			// :Symbol
-			@"(?<symbol>:[a-zA-Z0-9$_]+)|" +
+			@"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
 			// Label:
 			@"(?<label>[a-zA-Z0-9$_]+\:)|" +
 			// Literal
@@ -138,6 +138,26 @@ namespace Urb
 		private Stack<List<Token>> statement_stack = new Stack<List<Token>>();
 		private Stack<string> postpond_stack = new Stack<string>();
 
+
+		/* Note on new Update :
+		 * 
+		 * As I feel so hopeless on the old source code design based on Ruby and partly Forth,
+		 * I decided to totally change it into something more interesting to me. And matter to
+		 * strengthen the flow into a single minded source. I tried to reduce the fragment here.
+		 * 
+		 * - So everything now is on stack. 
+		 * - "newline" act like a statement enforce. 
+		 * - "{}" act as a single element for easy encapsulation.
+		 * - "end" simply a transition. since we are still parsing code.
+		 * - "label" is removed.
+		 * 
+		 * I will see if we can do this as dirty as possible, so we may got the result as fast
+		 * and as simple as possible. When the prototype work on compiling 100% C# compatible code
+		 * we can hope the rest will do just fine. 
+		 * 
+		 * In the same style, certainly. That's so important.
+		 */
+
 		// Well, I think we should play dirty :P 
 		private void Lex(List<Token> token_list)
 		{
@@ -158,9 +178,6 @@ namespace Urb
 						if (acc.Count == 0) break;
 						var line = acc.ToArray();
 						blocks.Add(acc);
-
-						// Prefix
-						PrefixForm(line);
 
 						// Postfix
 						switch (line[line.Length - 1].Name)
@@ -232,45 +249,6 @@ namespace Urb
 			{
 				Console.WriteLine(line);
 			}
-		}
-
-		private void PrefixForm(Token[] line)
-		{
-			switch (line[0].Name)
-			{
-				case "special_form":
-					if (line[0].Value != "end")
-						SpecialForm(line);
-					else // close braces everywhere. 
-						AddSource("}");
-					break;
-
-				case "label":
-					AddSource(
-						new CultureInfo("en-US").TextInfo.ToTitleCase
-						(line[0].Value));
-					break;
-
-				case "open_brace":
-					/************************************************
-					 *  We make room for new block of lines here.
-					 * 
-					 ************************************************/
-
-					break;
-				case "close_brace":
-					/************************************************
-					*  Then transform it here -> (a, b, c); as a statement.
-					*  then push to a postpond stack.
-					************************************************/
-
-					break;
-				default:
-					//Console.WriteLine("Not implemented {0}", line[0]);
-					break;
-			}
-
-
 		}
 
 		private void SpecialForm(Token[] line)

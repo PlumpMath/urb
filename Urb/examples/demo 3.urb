@@ -1,0 +1,33 @@
+﻿{ :System :UnityEngine :System.Collection.Generic } require
+
+{ :MonoBehaviour > :Player } class
+
+	Dictionary(String:String) new @dict =
+
+	Stack(Object) new @stack =
+
+	test:void definition 
+		{ -1 i < 10 i > && } {
+	  		1 i += 
+	  		i Console.WriteLine
+		} while
+		i result =
+	end
+
+	x:float y:float z:float set_position:void definition
+		{ 
+			transform.position.x x +
+		  	transform.position.y y +
+		  	transform.position.z z +
+		} 
+		Vector3 new 
+		transform.position =
+	end
+
+	Update:void definition
+		{ KeyCode.DownArrow Input.GetKey } {
+			0f -0.1f 0f set_position
+		} if
+	end
+
+end
