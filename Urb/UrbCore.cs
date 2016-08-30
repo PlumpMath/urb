@@ -179,6 +179,9 @@ namespace Urb
 						var line = acc.ToArray();
 						blocks.Add(acc);
 
+						// Prefix
+						SpecialForm(line);
+
 						// Postfix
 						switch (line[line.Length - 1].Name)
 						{
@@ -306,6 +309,8 @@ namespace Urb
 						"public {0} ( {1} ) {{", def_type_name, pairs_string));
 					break;
 
+				case "if": break;
+
 				case "new":
 
 					break;
@@ -313,6 +318,8 @@ namespace Urb
 				case "do":
 
 					break;
+
+				case "end": AddSource("}"); break;
 			}
 		}
 	}

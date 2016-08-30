@@ -10,13 +10,13 @@ class Player < MonoBehaviour
     condition:
       i += 1
       Console.WriteLine i
-      if i < 10
+      if i < 10 and -1 < i
         jump :condition
       end
       result = i
 
     Console.WriteLine "Good bye"
-    result
+    return result
   end
 
   def set_position:void x:float y:float z:float
