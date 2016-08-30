@@ -47,8 +47,8 @@ namespace Urb
 			// (a)
 			@"(?<parens>(\(.*\)))|" +
 			// [block]
-			@"(?<open_brace>\{)|" +
-			@"(?<close_brace>\})|" +
+			@"(?<open_brace>\[)|" +
+			@"(?<close_brace>\])|" +
 			// string " "
 			@"(?<string>\"".*\"")|" +
 			// pair of a:b
@@ -62,7 +62,7 @@ namespace Urb
 			// integer 120
 			@"(?<integer>[+-]?[0-9]+)|" +
 			// operators
-			@"(?<operator>[\+|-|\*|\/|\^|\+\=|\-\=])|" +
+			@"(?<operator>\+=|\-=|\+|\-|\*|\/|\^)|" +
 			// boolean
 			@"(?<boolean_compare>[\>|\<|\=|\==|\>=|\<=])|" +
 			@"(?<boolean_condition>[\|\||\&\&])|" +
@@ -71,7 +71,7 @@ namespace Urb
 			@"(?<compiler_directive>pop|jump)|" +
 
 			//special_form
-			@"(?<special_form>definition|end|class|require|if|new)|" +
+			@"(?<special_form>definition|end|class|require|if|new|with|do|and|or)|" +
 
 			// :Symbol
 			@"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -179,59 +179,8 @@ namespace Urb
 						var line = acc.ToArray();
 						blocks.Add(acc);
 
-						// Prefix
-						SpecialForm(line);
-
-						// Postfix
-						switch (line[line.Length - 1].Name)
-						{
-							case "special_form":
-								// we got "if" and "new" here.
-								switch (line[line.Length - 1].Value)
-								{
-									case "new":
-										if (postpond_stack.Count == 0)
-										{
-											// something here.
-											foreach (var word in line)
-											{
-												Console.Write("{0} ", word);
-											}
-										}
-										else {
-											// something else here.
-										}
-										break;
-
-									case "if":
-										// conds here.
-										break;
-
-								}
-								break;
-
-							case "compiler_directive":
-								// we got "pop" and "jump" here.
-								break;
-
-							case "operator":
-								// all numberic ops
-								break;
-							case "boolean_compare":
-								// all logic ops
-								break;
-
-							case "boolean_condition":
-								// all cond combinator
-								break;
-
-							default:
-								// the rest are literal statements.
-								break;
-						}
-
-						//Statements
-
+						// Prefix: but there should be only one processing part.
+						SpecialForm(line, acc);
 
 						// Clear Acc and new line.
 						acc = new List<Token>();
@@ -254,8 +203,11 @@ namespace Urb
 			}
 		}
 
-		private void SpecialForm(Token[] line)
+		private List<string> variables = new List<string>();
+
+		private void SpecialForm(Token[] line, List<Token> acc)
 		{
+			#region Prefix first.
 			switch (line[0].Value)
 			{
 				case "require":
@@ -309,18 +261,108 @@ namespace Urb
 						"public {0} ( {1} ) {{", def_type_name, pairs_string));
 					break;
 
-				case "if": break;
+				case "if":
+					// wondering if:
+					var if_statement = "if (";
+					var is_literal = false;
+					foreach (var word in line)
+					{
+						if (word.Value != "if")
+							switch (word.Value)
+							{
+								case "and": if_statement += "&& "; break;
+								case "or": if_statement += "|| "; break;
+								default: // Just literals
+									if (is_literal && word.Name == "literal")
+									{
+										// double literal mean ( )
+										if_statement += string.Format("({0})", word.Value);
+									}
+									else {
+										if_statement += string.Format("{0} ", word.Value);
+									}
+									// memorized.
+									is_literal = word.Name == "literal";
 
-				case "new":
+									break;
 
-					break;
-
-				case "do":
-
+							}
+					}
+					if_statement += "){";
+					AddSource(if_statement);
 					break;
 
 				case "end": AddSource("}"); break;
+				#endregion
+				// Statement
+				default:
+					switch (line[0].Name)
+					{
+						case "label": AddSource(line[0].Value); break;
+
+						case "instance_variable":
+						case "literal":
+							if (!variables.Contains(line[0].Value))
+							{
+								// we need to make parens converter -> somerthing<A,B> 
+								variables.Add(line[0].Value);
+							}
+							StatementBuild(line);
+							break;
+						case "compiler_directive":
+							switch (line[0].Value)
+							{
+								case "jump": AddSource(string.Format("goto {0}", line[1].Value)); break;
+								default: break;
+							}
+							break;
+
+						default:
+							break;
+					}
+					break;
 			}
+		}
+
+		private void StatementBuild(Token[] line)
+		{
+			var statement = "";
+			var is_literal = false;
+			var is_opened = false;
+			foreach (var word in line)
+			{
+				switch (word.Name)
+				{
+					case "integer":
+					case "float":
+					case "string":
+					case "literal":
+						if (is_literal && !is_opened)
+						{
+							statement += "(";
+							is_opened = true;
+						}
+						statement += word.Value + " ";
+						is_literal = true;
+						break;
+					case "special_form": // new 
+					case "operator":
+					case "boolean_operator":
+					case "boolean_compare":
+						statement += word.Value + " ";
+						break;
+					case "parens":
+						// Need parens converter here.
+						statement += word.ToString();
+						break;
+					default:
+						statement += word.ToString();
+						break;
+				}
+			}
+			if (is_literal) statement += ")";
+			statement += ";";
+			AddSource(statement);
 		}
 	}
 }
