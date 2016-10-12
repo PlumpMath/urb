@@ -43,7 +43,8 @@ namespace Urb
 			@"(?<newline>\n\t|\n|\r|\r\n)|" +
 			// \t
 			@"(?<tab>\t)|" +
-
+			// comma
+			@"(?<separator>,|\(|\))|" +
 			// (a)
 			@"(?<parens>(\(.*\)))|" +
 			// [block]
@@ -62,9 +63,9 @@ namespace Urb
 			// integer 120
 			@"(?<integer>[+-]?[0-9]+)|" +
 			// operators
-			@"(?<operator>\+=|\-=|\+|\-|\*|\/|\^)|" +
+			@"(?<operator>\+=|\-=|\=|\+|\-|\*|\/|\^)|" +
 			// boolean
-			@"(?<boolean_compare>[\>|\<|\=|\==|\>=|\<=])|" +
+			@"(?<boolean_compare>[\>|\<|\==|\>=|\<=])|" +
 			@"(?<boolean_condition>[\|\||\&\&])|" +
 
 			//compiler_directive
@@ -135,8 +136,8 @@ namespace Urb
 			csharp_blocks.Add(line);
 		}
 
-		private Stack<List<Token>> statement_stack = new Stack<List<Token>>();
-		private Stack<string> postpond_stack = new Stack<string>();
+		//private Stack<List<Token>> statement_stack = new Stack<List<Token>>();
+		//private Stack<string> postpond_stack = new Stack<string>();
 
 
 		/* Note on new Update :
@@ -157,6 +158,8 @@ namespace Urb
 		 * 
 		 * In the same style, certainly. That's so important.
 		 */
+		private Token[] _token_array;
+		private int _token_index = -1;
 
 		// Well, I think we should play dirty :P 
 		private void Lex(List<Token> token_list)
@@ -164,23 +167,36 @@ namespace Urb
 			Console.WriteLine("Lexing..");
 			var acc = new List<Token>();
 
-			var token_array = token_list.ToArray();
-			Console.WriteLine("Token List Length: {0}", token_array.Length);
+			_token_array = token_list.ToArray();
+			Console.WriteLine("Token List Length: {0}", _token_array.Length);
 
 
-			for (int i = 0; i < token_array.Length; i++)
+			for (int i = 0; i < _token_array.Length; i++)
 			{
-				var token = token_array[i];
+				/// caching token position ///
+				_token_index = i;
 
-				switch (token.Name)
+				var first_token = _token_array[i];
+
+				switch (first_token.Name)
 				{
 					case "newline":
 						if (acc.Count == 0) break;
 						var line = acc.ToArray();
 						blocks.Add(acc);
 
+						//////////////////////////////////////////////////////
+						/// 											   ///
+						/// We can build a peaker here to see,			   ///
+						/// if there's something we need in the next line. ///
+						/// Since it reach 'newline', index already to the ///
+						/// next line. So we can use to peak what's next.  ///
+						/// 											   ///
+						//////////////////////////////////////////////////////
+
+
 						// Prefix: but there should be only one processing part.
-						SpecialForm(line, acc);
+						EatFromFirstToken(line, acc);
 
 						// Clear Acc and new line.
 						acc = new List<Token>();
@@ -189,8 +205,8 @@ namespace Urb
 
 					default:
 						// accumulate them.
-						acc.Add(token);
-						Console.Write("{0} ", token.Value);
+						acc.Add(first_token);
+						Console.Write("{0} ", first_token.Value);
 						break;
 				}
 			}
@@ -203,9 +219,14 @@ namespace Urb
 			}
 		}
 
+		private Token PeakNextToken(int steps = 0)
+		{
+			return _token_array[_token_index + steps];
+		}
+
 		private List<string> variables = new List<string>();
 
-		private void SpecialForm(Token[] line, List<Token> acc)
+		private void EatFromFirstToken(Token[] line, List<Token> acc)
 		{
 			#region Prefix first.
 			switch (line[0].Value)
@@ -292,7 +313,17 @@ namespace Urb
 					AddSource(if_statement);
 					break;
 
-				case "end": AddSource("}"); break;
+				case "end":
+					if (_is_with)
+					{
+						_is_with = false;
+						AddSource(" );");
+					}
+					else
+					{
+						AddSource("}");
+					}
+					break;
 				#endregion
 				// Statement
 				default:
@@ -323,12 +354,13 @@ namespace Urb
 					break;
 			}
 		}
-
+		private bool _is_with = false;
 		private void StatementBuild(Token[] line)
 		{
 			var statement = "";
 			var is_literal = false;
 			var is_opened = false;
+			var is_new = false;
 			foreach (var word in line)
 			{
 				switch (word.Name)
@@ -337,7 +369,7 @@ namespace Urb
 					case "float":
 					case "string":
 					case "literal":
-						if (is_literal && !is_opened)
+						if (is_literal && !is_opened && !is_new && !_is_with)
 						{
 							statement += "(";
 							is_opened = true;
@@ -345,7 +377,23 @@ namespace Urb
 						statement += word.Value + " ";
 						is_literal = true;
 						break;
-					case "special_form": // new 
+					case "separator":
+						statement += word.Value;
+						break;
+					case "special_form": /// new / with
+						switch (word.Value)
+						{
+							case "new":
+								statement += word.Value + " ";
+								is_new = true;
+								break;
+							case "with":
+								_is_with = true;
+								statement += "( ";
+								break;
+							default: throw new NotImplementedException();
+						}
+						break;
 					case "operator":
 					case "boolean_operator":
 					case "boolean_compare":
@@ -360,8 +408,21 @@ namespace Urb
 						break;
 				}
 			}
-			if (is_literal) statement += ")";
-			statement += ";";
+			if (!_is_with)
+			{
+				if (is_literal) statement += ")";
+				statement += ";";
+			}
+			else if (!is_new)
+			{
+				if (_token_index < _token_array.Length)
+				{
+					/// We ignore newline.
+					Console.WriteLine("PeakNext:" + PeakNextToken(1).Name);
+					if (PeakNextToken(1).Value != "end")
+						statement += ",";
+				}
+			}
 			AddSource(statement);
 		}
 	}
