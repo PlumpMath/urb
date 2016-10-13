@@ -20,21 +20,23 @@ Is a Unity-compatible language inpired by ruby/forth.
 
         require System
         require UnityEngine
+        require System.Collections.Generic
 
         class Player < MonoBehaviour
 
-          $name = "deulamco"
+          $Name = "deulamco"
           @dict = new Dictionary <String,String> 
-          @stack = new Stack <Object> 
+          @stack = new Stack <object> 
             
           def test:void
             Condition:
+            var i = 0
             i += 1
             Console.WriteLine i
             if i < 10 and -1 < i
-              jump :Condition
+              jump Condition
             end
-            result = i
+            var result = i
 
             Console.WriteLine "Good bye"
             return result
@@ -54,8 +56,6 @@ Is a Unity-compatible language inpired by ruby/forth.
             end
           end
         end
-
-
 
   ... into this: 
 
