@@ -55,8 +55,10 @@ namespace Urb
 			// pair of a:b
 			@"(?<pair>[a-zA-Z0-9$_]+:[a-zA-Z0-9$_]+)|" +
 
-			// @variable
+			// @instant_variable
 			@"(?<instance_variable>\@[a-zA-Z0-9$_]+)|" +
+			// $global_variable
+			@"(?<global_variable>\$[a-zA-Z0-9$_]+)|" +
 
 			// float 1f 2.0f
 			@"(?<float>[-+]?[0-9]*\.?[0-9]+f)|" +
@@ -72,7 +74,7 @@ namespace Urb
 			@"(?<compiler_directive>pop|jump)|" +
 
 			//special_form
-			@"(?<special_form>definition|end|class|require|if|new|with|do|and|or)|" +
+			@"(?<special_form>definition|end|class|require|if|new|with|do|and|or|var)|" +
 
 			// :Symbol
 			@"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -85,6 +87,7 @@ namespace Urb
 			@"(?<invalid>[^\s]+)";
 		#endregion
 
+		#region Parser
 		// Readline.
 		public void Parse(string source, bool isDebug = false)
 		{
@@ -121,7 +124,9 @@ namespace Urb
 			// We need to eat the token here with a Lexer !
 			Lex(token_list);
 		}
+		#endregion
 
+		#region Line Helpers 
 		private List<List<Token>> blocks = new List<List<Token>>();
 		private List<string> csharp_blocks = new List<string>();
 
@@ -131,14 +136,19 @@ namespace Urb
 			Console.WriteLine();
 		}
 
+		private string ViewLine(Token[] line)
+		{
+			var s = String.Empty;
+			foreach (var word in line) s += String.Format("{0} ", word.Value);
+			return s;
+		}
+
 		private void AddSource(string line)
 		{
 			csharp_blocks.Add(line);
 		}
 
-		//private Stack<List<Token>> statement_stack = new Stack<List<Token>>();
-		//private Stack<string> postpond_stack = new Stack<string>();
-
+		#endregion
 
 		/* Note on new Update :
 		 * 
@@ -158,6 +168,8 @@ namespace Urb
 		 * 
 		 * In the same style, certainly. That's so important.
 		 */
+
+		#region Lexer
 		private Token[] _token_array;
 		private int _token_index = -1;
 
@@ -165,12 +177,18 @@ namespace Urb
 		private void Lex(List<Token> token_list)
 		{
 			Console.WriteLine("Lexing..");
-			var acc = new List<Token>();
 
+			/// Lexing Start... ///
+
+			var acc = new List<Token>();
 			_token_array = token_list.ToArray();
 			Console.WriteLine("Token List Length: {0}", _token_array.Length);
 
-
+			///////////////////////////////////////////
+			///										///
+			/// Eat up all tokens and processing... ///
+			/// 									///
+			///////////////////////////////////////////
 			for (int i = 0; i < _token_array.Length; i++)
 			{
 				/// caching token position ///
@@ -187,16 +205,15 @@ namespace Urb
 
 						//////////////////////////////////////////////////////
 						/// 											   ///
-						/// We can build a peaker here to see,			   ///
+						/// We build a peaker here to see,			   ///
 						/// if there's something we need in the next line. ///
 						/// Since it reach 'newline', index already to the ///
 						/// next line. So we can use to peak what's next.  ///
 						/// 											   ///
 						//////////////////////////////////////////////////////
 
-
-						// Prefix: but there should be only one processing part.
-						EatFromFirstToken(line, acc);
+						// Prefix: the singleton processing part.
+						TransformTokens(line, acc);
 
 						// Clear Acc and new line.
 						acc = new List<Token>();
@@ -210,14 +227,25 @@ namespace Urb
 						break;
 				}
 			}
+			// Oh, we forgot last line:
+			var last_line = acc.ToArray();
+			blocks.Add(acc);
+			TransformTokens(last_line, acc);
+			acc = new List<Token>();
 
 
+			/////////////////////////////////////////
+			///							  		  ///
+			/// Print transformed C# source code. ///
+			/// 								  ///
+			/////////////////////////////////////////
 			Console.WriteLine("\n\n[Transformed C#] \n");
 			foreach (var line in csharp_blocks)
 			{
 				Console.WriteLine(line);
 			}
 		}
+		#endregion
 
 		private Token PeakNextToken(int steps = 0)
 		{
@@ -226,9 +254,9 @@ namespace Urb
 
 		private List<string> variables = new List<string>();
 
-		private void EatFromFirstToken(Token[] line, List<Token> acc)
+		private void TransformTokens(Token[] line, List<Token> acc)
 		{
-			#region Prefix first.
+			#region Prefix keyword first.
 			switch (line[0].Value)
 			{
 				case "require":
@@ -240,11 +268,11 @@ namespace Urb
 					switch (line.Length)
 					{
 						case 2: // class A {} 
-							AddSource(string.Format("class {0} {{", line[1].Value));
+							AddSource(string.Format("\nclass {0} {{", line[1].Value));
 							break;
 						// class A: B
 						case 4:
-							AddSource(string.Format("class {0} : {1} {{", line[1].Value, line[3].Value));
+							AddSource(string.Format("\nclass {0} : {1} {{", line[1].Value, line[3].Value));
 							break;
 
 						default:
@@ -279,7 +307,7 @@ namespace Urb
 						}
 					// now into braces (){
 					AddSource(string.Format(
-						"public {0} ( {1} ) {{", def_type_name, pairs_string));
+						"\npublic {0} ( {1} ) {{", def_type_name, pairs_string));
 					break;
 
 				case "if":
@@ -313,6 +341,10 @@ namespace Urb
 					AddSource(if_statement);
 					break;
 
+				case "var":
+					AddSource(ViewLine(line) + ";");
+					break;
+
 				case "end":
 					if (_is_with)
 					{
@@ -330,37 +362,77 @@ namespace Urb
 					switch (line[0].Name)
 					{
 						case "label": AddSource(line[0].Value); break;
-
+						///////////////////////////////////////
+						/// 								///
+						/// Here come the part of @variable ///
+						/// 								///
+						///////////////////////////////////////
+						case "global_variable":
 						case "instance_variable":
 						case "literal":
 							if (!variables.Contains(line[0].Value))
 							{
 								// we need to make parens converter -> somerthing<A,B> 
 								variables.Add(line[0].Value);
+								Console.WriteLine("variable: {0}", line[0].Value);
 							}
 							StatementBuild(line);
 							break;
 						case "compiler_directive":
 							switch (line[0].Value)
 							{
-								case "jump": AddSource(string.Format("goto {0}", line[1].Value)); break;
+								case "jump": AddSource(string.Format("goto {0};", line[1].Value)); break;
 								default: break;
 							}
 							break;
 
-						default:
-							break;
+						default: throw new NotImplementedException(line[0].Name);
+							//break;
 					}
 					break;
 			}
 		}
+
+		private string InspectTypeAssignment(Token[] line)
+		{
+			// normally, it's just after the '=' //
+			for (int i = 2; i < line.Length; i++)
+			{
+				// inspecting.. //
+				// AddSource(string.Format("{0}:{1}\n", i, line[i].Value));
+				switch (line[i].Name)
+				{
+					case "integer": return "Int32";
+					case "float": return "float";
+					case "string": return "String";
+					case "literal": throw new NotImplementedException(line[i].Name);
+					case "special_form":
+						switch (line[i].Value)
+						{
+							case "new":
+								_is_needed_closing = true;
+								string type = "";
+								for (int j = i + 1; j < line.Length; j++)
+								{
+									type += line[j].Value;
+								}
+								return type;
+							default: throw new NotImplementedException(line[i].Name);
+						}
+					default: throw new NotImplementedException(line[i].Name);
+				}
+			}
+			throw new NotImplementedException(line[2].ToString());
+		}
 		private bool _is_with = false;
+		private bool _is_needed_closing = false;
 		private void StatementBuild(Token[] line)
 		{
 			var statement = "";
 			var is_literal = false;
 			var is_opened = false;
 			var is_new = false;
+			_is_needed_closing = false;
 			foreach (var word in line)
 			{
 				switch (word.Name)
@@ -377,6 +449,13 @@ namespace Urb
 						statement += word.Value + " ";
 						is_literal = true;
 						break;
+					case "instance_variable":
+						statement += string.Format("private {0} {1} ", InspectTypeAssignment(line), word.Value.Substring(1));
+						break;
+					case "global_variable":
+						statement += string.Format("public {0} {1} ", InspectTypeAssignment(line), word.Value.Substring(1));
+						break;
+					case "pair": break;
 					case "separator":
 						statement += word.Value;
 						break;
@@ -404,13 +483,16 @@ namespace Urb
 						statement += word.ToString();
 						break;
 					default:
-						statement += word.ToString();
-						break;
+						throw new NotImplementedException(
+							string.Format("Undefined {0} at:\n{1}",
+										  word.ToString(),
+										  ViewLine(line)));
 				}
 			}
 			if (!_is_with)
 			{
-				if (is_literal) statement += ")";
+				if (is_literal && is_opened) statement += ")";
+				if (_is_needed_closing) statement += "()";
 				statement += ";";
 			}
 			else if (!is_new)
