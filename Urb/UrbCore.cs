@@ -257,6 +257,7 @@ namespace Urb
 		private void TransformTokens(Token[] line, List<Token> acc)
 		{
 			#region Prefix keyword first.
+			if (line.Length == 0) return;
 			switch (line[0].Value)
 			{
 				case "require":
