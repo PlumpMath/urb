@@ -1,4 +1,4 @@
-﻿require System
+require System
 require UnityEngine
 
 class Player < MonoBehaviour
@@ -19,15 +19,19 @@ class Player < MonoBehaviour
 	  
     goodbye:
       "Good bye" Console.WriteLine
-    
+  end
+  
   def set_position:void x:float y:float z:float
     transform.position.x x +
     transform.position.y y +
     transform.position.z z + 
       Vector3 new
     transform.position pop
-  	   
+  end
+  
   def Update:void
     KeyCode.DownArrow Input.GetKey if
       0f -0.1f 0f set_position
-  
+  end
+end
+ 
