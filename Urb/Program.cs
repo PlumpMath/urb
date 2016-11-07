@@ -8,13 +8,12 @@ namespace Urb
 		public static void Main(string[] args)
 		{
 			var urb = new UrbCore();
-			Console.WriteLine("* Urb :: A Rubylike language compiler *");
 
 			// Test Source:
-			string test = File.ReadAllText("../../examples/Ruby.rb");
-			urb.Parse(test, isDebug: false);
+			var source = File.ReadAllText("../../examples/Ruby.rb");
 
-			//Console.ReadLine ();
+			// Compiling..
+			urb.Compile(source, "demo.dll", isExe: false);
 		}
 	}
 }

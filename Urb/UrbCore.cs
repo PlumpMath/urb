@@ -1,6 +1,7 @@
 ﻿using System;
-using System.Collections;
-using System.Globalization;
+using System.Text;
+using Microsoft.CSharp;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
@@ -74,7 +75,7 @@ namespace Urb
 			@"(?<compiler_directive>pop|jump)|" +
 
 			//special_form
-			@"(?<special_form>def\-|def\+|end|class|require|if|new|with|do|and|or|var)|" +
+			@"(?<special_form>def\-|def\+|end|class|import|require|if|new|with|do|and|or|var)|" +
 
 			// :Symbol
 			@"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -89,7 +90,7 @@ namespace Urb
 
 		#region Parser
 		// Readline.
-		public void Parse(string source, bool isDebug = false)
+		public string ParseIntoCSharp(string source, bool isDebugTransform = false, bool isDebugGrammar = false)
 		{
 			var token_list = new List<Token>();
 			var regex_pattern = new Regex(pattern);
@@ -114,7 +115,7 @@ namespace Urb
 							token_list.Add(new Token(group_name, match_value));
 
 							//if (groupName != "newline") 
-							if (isDebug)
+							if (isDebugGrammar)
 								Console.WriteLine("{0} - {1}", group_name, match_value);
 						}
 					}
@@ -122,7 +123,7 @@ namespace Urb
 				}
 			}
 			// We need to eat the token here with a Lexer !
-			Lex(token_list);
+			return Lex(token_list, isDebugTransform);
 		}
 		#endregion
 
@@ -150,39 +151,20 @@ namespace Urb
 
 		#endregion
 
-		/* Note on new Update :
-		 * 
-		 * As I feel so hopeless on the old source code design based on Ruby and partly Forth,
-		 * I decided to totally change it into something more interesting to me. And matter to
-		 * strengthen the flow into a single minded source. I tried to reduce the fragment here.
-		 * 
-		 * - So everything now is on stack. 
-		 * - "newline" act like a statement enforce. 
-		 * - "{}" act as a single element for easy encapsulation.
-		 * - "end" simply a transition. since we are still parsing code.
-		 * - "label" is removed.
-		 * 
-		 * I will see if we can do this as dirty as possible, so we may got the result as fast
-		 * and as simple as possible. When the prototype work on compiling 100% C# compatible code
-		 * we can hope the rest will do just fine. 
-		 * 
-		 * In the same style, certainly. That's so important.
-		 */
-
 		#region Lexer
 		private Token[] _token_array;
 		private int _token_index = -1;
 
 		// Well, I think we should play dirty :P 
-		private void Lex(List<Token> token_list)
+		public string Lex(List<Token> token_list, bool isDebugTransform = false)
 		{
-			Console.WriteLine("Lexing..");
+			if (isDebugTransform) Console.WriteLine("Lexing..");
 
 			/// Lexing Start... ///
 
 			var acc = new List<Token>();
 			_token_array = token_list.ToArray();
-			Console.WriteLine("Token List Length: {0}", _token_array.Length);
+			if (isDebugTransform) Console.WriteLine("Token List Length: {0}", _token_array.Length);
 
 			///////////////////////////////////////////
 			///										///
@@ -213,24 +195,24 @@ namespace Urb
 						//////////////////////////////////////////////////////
 
 						// Prefix: the singleton processing part.
-						TransformTokens(line, acc);
+						TransformTokens(line, acc, isDebugTransform);
 
 						// Clear Acc and new line.
 						acc = new List<Token>();
-						Console.WriteLine();
+						if (isDebugTransform) Console.WriteLine();
 						break;
 
 					default:
 						// accumulate them.
 						acc.Add(first_token);
-						Console.Write("{0} ", first_token.Value);
+						if (isDebugTransform) Console.Write("{0} ", first_token.Value);
 						break;
 				}
 			}
 			// Oh, we forgot last line:
 			var last_line = acc.ToArray();
 			blocks.Add(acc);
-			TransformTokens(last_line, acc);
+			TransformTokens(last_line, acc, isDebugTransform);
 			acc = new List<Token>();
 
 
@@ -239,13 +221,20 @@ namespace Urb
 			/// Print transformed C# source code. ///
 			/// 								  ///
 			/////////////////////////////////////////
-			Console.WriteLine("\n\n[Transformed C#] \n");
+			if (isDebugTransform) Console.WriteLine("\n\n[Transformed C#] \n");
+			var csharp_source = new StringBuilder();
 			foreach (var line in csharp_blocks)
 			{
-				Console.WriteLine(line);
+				if (isDebugTransform)
+					Console.WriteLine(line);
+				csharp_source.Append(line);
+				csharp_source.AppendLine();
 			}
+			return csharp_source.ToString();
 		}
 		#endregion
+
+		#region Code Transformation
 
 		private Token PeakNextToken(int steps = 0)
 		{
@@ -253,14 +242,20 @@ namespace Urb
 		}
 
 		private List<string> variables = new List<string>();
-
-		private void TransformTokens(Token[] line, List<Token> acc)
+		private List<string> references = new List<string>();
+		private void TransformTokens(Token[] line, List<Token> acc, bool isDebugTransform)
 		{
 			#region Prefix keyword first.
 			if (line.Length == 0) return;
 			switch (line[0].Value)
 			{
 				case "require":
+					// added as references too.
+					references.Add(line[1].Value + ".dll");
+					// require a => Using a;
+					AddSource(string.Format("using {0};", line[1].Value));
+					break;
+				case "import":
 					// require a => Using a;
 					AddSource(string.Format("using {0};", line[1].Value));
 					break;
@@ -282,7 +277,7 @@ namespace Urb
 					}
 					break;
 				case "def":
-					Console.WriteLine();
+					if (isDebugTransform) Console.WriteLine();
 					// def a:void b:float c:int
 					// but first we need to reverse all of them a:void -> void a
 					var pairs = new List<string>();
@@ -293,7 +288,7 @@ namespace Urb
 							var pair = word.Value.Split(new char[] { ':' });
 							var new_pair = pair[1] + " " + pair[0];
 							pairs.Add(new_pair);
-							Console.Write("{0} ", new_pair);
+							if (isDebugTransform) Console.Write("{0} ", new_pair);
 						}
 					}
 					// well now we got all pairs ! let add (, , , ) { 
@@ -375,7 +370,7 @@ namespace Urb
 							{
 								// we need to make parens converter -> somerthing<A,B> 
 								variables.Add(line[0].Value);
-								Console.WriteLine("variable: {0}", line[0].Value);
+								if (isDebugTransform) Console.WriteLine("variable: {0}", line[0].Value);
 							}
 							StatementBuild(line);
 							break;
@@ -501,13 +496,57 @@ namespace Urb
 				if (_token_index < _token_array.Length)
 				{
 					/// We ignore newline.
-					Console.WriteLine("PeakNext:" + PeakNextToken(1).Name);
+					//Console.WriteLine("PeakNext:" + PeakNextToken(1).Name);
 					if (PeakNextToken(1).Value != "end")
 						statement += ",";
 				}
 			}
 			AddSource(statement);
 		}
+
+		#endregion
+
+		#region Compiling
+
+		public void Compile(string urb_source, string fileName, bool isExe = false, bool isDebugTransform = false, bool isDebugGrammar = false)
+		{
+			Console.WriteLine("* Urb :: A Rubylike language compiler *");
+
+			var cs_source = ParseIntoCSharp(urb_source, isDebugTransform, isDebugGrammar);
+			_compile_csharp_source(cs_source, fileName, isExe);
+		}
+
+		private void _compile_csharp_source(string source, string fileName, bool isExe = false, bool isInMemory = false)
+		{
+			var compiler_parameter = new CompilerParameters();
+			compiler_parameter.GenerateExecutable = isExe;
+			compiler_parameter.OutputAssembly = fileName;
+			compiler_parameter.GenerateInMemory = isInMemory;
+			foreach (var name in references)
+				compiler_parameter.ReferencedAssemblies.Add(name);
+
+			var compiler = new CSharpCodeProvider();
+
+			var result = compiler.CompileAssemblyFromSource(compiler_parameter, new string[] { source });
+			if (result.Errors.Count > 0)
+			{
+				// Display compilation errors.
+				Console.WriteLine("Errors building  into {0}",
+					result.PathToAssembly);
+				foreach (CompilerError ce in result.Errors)
+				{
+					Console.WriteLine("  {0}", ce.ToString());
+					Console.WriteLine();
+				}
+			}
+			else
+			{
+				Console.WriteLine("Source built into {0} successfully.",
+				result.PathToAssembly);
+			}
+		}
+
+		#endregion
 	}
 }
 

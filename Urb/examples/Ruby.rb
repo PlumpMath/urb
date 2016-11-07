@@ -1,8 +1,8 @@
 ﻿require System
 require UnityEngine
-require System.Collections.Generic
+import System.Collections.Generic
 
-class Player < MonoBehaviour
+class UrbDemo < MonoBehaviour
 
 	$Name = "deulamco"
 	@dict = new Dictionary <String,String> 
@@ -18,8 +18,10 @@ class Player < MonoBehaviour
 		end
 		var result = i
 
-		Console.WriteLine "Good bye"
-		return result
+		dict.Clear ()
+		stack.Clear ()
+
+		Console.WriteLine "Good bye {0}", result
 	end
 
 	def set_position:void x:float y:float z:float
