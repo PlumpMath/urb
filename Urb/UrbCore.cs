@@ -74,7 +74,7 @@ namespace Urb
 			@"(?<compiler_directive>pop|jump)|" +
 
 			//special_form
-			@"(?<special_form>definition|end|class|require|if|new|with|do|and|or|var)|" +
+			@"(?<special_form>def\-|def\+|end|class|require|if|new|with|do|and|or|var)|" +
 
 			// :Symbol
 			@"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
