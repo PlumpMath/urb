@@ -1,15 +1,16 @@
 # Urb
-Is a Unity-compatible language inpired by ruby/forth.
+A Unity-compatible language inpired by ruby/forth.
 
 ####1. Intend
  - a C# Transformer from the mix of ruby/forth to let us have fun. I will halt this project if we don't.
  
 ####2. Core Features
- - Ruby syntax & block.
+ - Ruby block & syntax.
  - Forth Statement order (Experiment).
  - C# source code & assembly output.
  - Unity Editor intergration.
- 
+ - Code Intellisense MonoDevelop plugin. (If I have enough power)
+
 ####3. Mechanism
 
         urb code > tokens > C# syntax > .NET C# Compiler > Assembly > Unity
@@ -18,8 +19,8 @@ Is a Unity-compatible language inpired by ruby/forth.
 
   - So how does Urb work ? It turn something like this:
 
-        require System
-        require UnityEngine
+        import System
+        import UnityEngine
         require System.Collections.Generic
 
         class Player < MonoBehaviour
@@ -37,9 +38,10 @@ Is a Unity-compatible language inpired by ruby/forth.
               jump Condition
             end
             var result = i
+            dict.Clear ()
+            stack.Clear ()
 
-            Console.WriteLine "Good bye"
-            return result
+            Console.WriteLine "Good bye with result: {0}", result
           end
 
           def set_position:void x:float y:float z:float
@@ -77,8 +79,10 @@ Is a Unity-compatible language inpired by ruby/forth.
               goto Condition;
             }
             var result = i ;
-            Console.WriteLine ("Good bye" );
-            return (result );
+            dict.Clear () ;
+            dict.Clear () ;
+            
+            Console.WriteLine ("Good bye with result:{0}", result );
           }
 
           public void set_position ( float x, float y, float z ) {
@@ -95,3 +99,14 @@ Is a Unity-compatible language inpired by ruby/forth.
             }
           }
         }
+
+And then into the Assembly form of DLL or EXE, as the compiler setting at:
+
+    var urb = new UrbCore();
+    var source = File.ReadAllText("../../examples/Ruby.rb");
+    urb.Compile(source, "demo.dll", isExe: false);
+
+Actually, you can just throw that assembly into Unity Assets folder to use it as a component anyway. 
+The intergration can be done later when I finish this in a more tidy way :D
+
+Or you guys can lend me a hand anytime !
