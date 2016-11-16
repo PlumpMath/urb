@@ -7,8 +7,9 @@
 	(set stack (new Stack <object>))
 	(set dict (new Dictionary<String,String>)) 
 
-	(def- (void:test)
-	  ((label Condition)
+	(def- (fun test:void)
+	  (progn 
+	  	(label Condition)
 		(var i 0)
 		(+= i 1)
 		(Console.WriteLine i)
@@ -18,14 +19,16 @@
 		(Console.WriteLine "Good bye")
 		(return result)))
 
-	(def+ (set_position:void x:float y:float z:float)
-	  ((set transform.position 
+	(def+ (fun set_position:void x:float y:float z:float)
+	  (progn 
+	  	(set transform.position 
 	    (new Vector3 
 	    (+ transform.position.x x)
 	    (+ transform.position.y y)
  	    (+ transform.position.z z)))))
 	   
 	(def+ (Update:void)
-	  ((if (Input.GetKey KeyCode.DownArrow)
+	  (progn
+	    (if (Input.GetKey KeyCode.DownArrow)
 	    (set_position 0f -0.1f 0f))))
 )

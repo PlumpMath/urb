@@ -7,13 +7,15 @@ namespace Urb
 	{
 		public static void Main(string[] args)
 		{
-			var urb = new UrbCore();
+			//var urb = new UrbCore();
+			var uLisp = new ULisp();
 
 			// Test Source:
-			var source = File.ReadAllText("../../examples/Ruby.rb");
+			var source = File.ReadAllText("../../examples/Lisp.urb");
 
 			// Compiling..
-			urb.Compile(source, "demo.dll", isExe: false);
+			//urb.Compile(source, "demo.dll", false);
+			uLisp.Compile(source, "demo.dll", false, true, true);
 		}
 	}
 }
