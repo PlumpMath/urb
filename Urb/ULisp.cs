@@ -288,7 +288,8 @@ namespace Urb
 			 * 									   *
 			 * Here we build tokenized expression. *
 			 * 									   *
-			 ***************************************
+			 ***************************************/
+			return null;
 		}
 
 		private int _transformerIndex = 0;
