@@ -151,6 +151,11 @@ namespace Urb
 			csharp_blocks.Add(line);
 		}
 
+		private void _print(string line, params object[] args)
+		{
+			Console.Write(line, args);
+		}
+
 		#endregion
 
 		#region Lexer
@@ -258,6 +263,11 @@ namespace Urb
 						}
 						// except special separator we eat all //
 						acc.Add(tokens[i]);
+						/************************************
+						 * 									*
+						 * Would we transform token here ?	*
+						 * 									*
+						 ************************************/
 						_print(" {0}", tokens[i].Value);
 						break;
 				}
@@ -272,15 +282,24 @@ namespace Urb
 			return null;
 		}
 
-		private void _print(string line, params object[] args)
+		private Expression BuildExpression(Expression expressions)
 		{
-			Console.Write(line, args);
+			/***************************************
+			 * 									   *
+			 * Here we build tokenized expression. *
+			 * 									   *
+			 ***************************************
 		}
 
 		private int _transformerIndex = 0;
 		private Stack<object> _newListStack = new Stack<object>();
 
-		private class Expression
+		private interface ITransformable
+		{
+			string TransformIntoCSharp();
+		}
+
+		private class Expression : ITransformable
 		{
 			public object function;
 			public object[] elements;
@@ -305,6 +324,11 @@ namespace Urb
 				var acc = "";
 				foreach (var obj in elements) acc += obj.ToString() + " ";
 				return string.Format("({0} {1})", function.ToString(), acc);
+			}
+
+			public string TransformIntoCSharp()
+			{
+				throw new NotImplementedException();
 			}
 		}
 

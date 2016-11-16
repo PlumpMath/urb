@@ -110,3 +110,50 @@ Actually, you can just throw that assembly into Unity Assets folder to use it as
 The intergration can be done later when I finish this in a more tidy way :D
 
 Or you guys can lend me a hand anytime !
+
+* UPDATE *
+Well, I'm also doing another translation from Lisp-like structure into C#. Something like:
+
+		(require System)
+		(require UnityEngine)
+		(import System.Collections.Generic)
+
+		(class (inherit Player MonoBehaviour)
+
+			(set Name "deulamco")
+			(set stack (new Stack <object>))
+			(set dict (new Dictionary<String,String>)) 
+
+			(defun :private test:void 
+			  (progn 
+			  	(label Condition)
+				(var i 0)
+				(+= i 1)
+				(Console.WriteLine i)
+				(if (and (< i 10) (< -1 i))
+					(jump Condition))
+				(var result i)
+				(Console.WriteLine "Good bye")
+				(return result)))
+
+			(defun :public set_position:void 
+				x:float 
+				y:float 
+				z:float
+			  (progn 
+			  	(set transform.position 
+			    (new Vector3 
+			    (+ transform.position.x x)
+			    (+ transform.position.y y)
+		 	    (+ transform.position.z z)))))
+			   
+			(defun Update:void
+			  (progn
+			    (if (Input.GetKey KeyCode.DownArrow)
+			    (set_position 0f -0.1f 0f))))
+		)
+
+It re-use some already working keyword borrow from the Ruby translation, 
+and partly from Common Lisp. While remaining most CSharp keyword here.
+
+It's still in-progress but I will update soon.
