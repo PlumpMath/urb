@@ -77,7 +77,7 @@ namespace Urb
 			@"(?<compiler_directive>pop|jump)|" +
 
 			//special_form
-			@"(?<special_form>defun|end|class|import|require|if|new|with|do|and|or|var|progn)|" +
+			@"(?<special_form>inherit|defun|var|set|progn|label|end|class|import|require|if|new|with|do|and|or)|" +
 
 			// :Symbol
 			@"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -130,7 +130,6 @@ namespace Urb
 		#endregion
 
 		#region Line Helpers 
-		private List<List<Token>> blocks = new List<List<Token>>();
 		private List<string> csharp_blocks = new List<string>();
 
 		private void InspectLine(List<Token> line)
@@ -150,6 +149,14 @@ namespace Urb
 		{
 			csharp_blocks.Add(line);
 		}
+
+		private static string SourceEnforce(object[] args, int index)
+		{
+			return args[index].GetType() != typeof(Atom) ?
+				   ((Functional)args[index]).CompileToCSharp()
+								  : (string)((Atom)args[index]).value;
+		}
+
 
 		private void _print(string line, params object[] args)
 		{
@@ -179,8 +186,11 @@ namespace Urb
 			/// 									///
 			///////////////////////////////////////////
 			TransformTokens(_token_array, acc, isDebugTransform);
-
-
+			var functions = RefineExpressions(_expressions);
+			foreach (var function in functions)
+			{
+				AddSource(function.CompileToCSharp());
+			}
 			/////////////////////////////////////////
 			///							  		  ///
 			/// Print transformed C# source code. ///
@@ -199,7 +209,7 @@ namespace Urb
 		}
 		#endregion
 
-		#region Code Transformation
+		#region Token Transformation
 
 		private Token PeakNextToken(int steps = 0)
 		{
@@ -282,28 +292,140 @@ namespace Urb
 			return null;
 		}
 
-		private Expression BuildExpression(Expression expressions)
+		#endregion
+
+		#region Code Transformation
+
+		private class LiteralForm : Functional
 		{
-			/***************************************
-			 * 									   *
-			 * Here we build tokenized expression. *
-			 * 									   *
-			 ***************************************/
+			private string _functionLiteral;
+			public LiteralForm(object[] args) : base(args) { }
+			public void Init(Atom function)
+			{
+				_functionLiteral = function.value.ToString();
+			}
+			public override string CompileToCSharp()
+			{
+				var acc = new StringBuilder();
+				for (int i = 0; i < args.Length; i++)
+				{
+					acc.Append(
+						args[i].GetType() == typeof(Atom) ?
+						((Atom)args[i]).ToString() :
+						SourceEnforce(args, i) +
+							   (i + 1 < args.Length ? ", " : ""));
+				}
+				return string.Format(" {0} ({1})", _functionLiteral, acc.ToString());
+			}
+		}
+
+		private static Functional BuildExpression(Expression expression)
+		{
+			// We plugin all special forms here. //
+			if (expression.function.GetType() == typeof(Token))
+			{
+				// transform it into primitive if possible //
+				var token = (Token)expression.function;
+				switch (token.Name)
+				{
+					// All Primitives //
+					case "compiler_directive":
+					case "operator":
+					case "boolean_compare":
+					case "special_form":
+						if (_functionMap.ContainsKey(token.Value))
+						{
+							// mean it's implemented primitive. //
+							return (Functional)Activator.CreateInstance(
+								_functionMap[token.Value],
+								new[] { expression.transformedElements });
+						}
+						else throw new NotImplementedException("Unknown form: " + token.Value);
+
+					case "literal":
+						// normal function or invoke. //
+						var f = new LiteralForm(expression.transformedElements);
+						f.Init(new Atom(token.Name, token.Value));
+						return f;
+
+					default: throw new NotSupportedException(token.Name);
+				}
+			}
 			return null;
 		}
 
-		private int _transformerIndex = 0;
-		private Stack<object> _newListStack = new Stack<object>();
-
-		private interface ITransformable
+		private static Atom BuildAtom(Token token)
 		{
-			string TransformIntoCSharp();
+			switch (token.Name)
+			{
+				case "symbol":
+					return new Atom(token.Name,
+									token.Value.Substring(1, token.Value.Length - 1));
+				case "integer": return new Atom("Int32", Int32.Parse(token.Value));
+				case "float": return new Atom("float", float.Parse(token.Value.Substring(0, token.Value.Length - 1)));
+				default: return new Atom(token.Name, token.Value);
+			}
 		}
 
-		private class Expression : ITransformable
+		private List<Functional> RefineExpressions(List<Expression> expressions)
+		{
+			/******************************************
+			 * 									      *
+			 * Phrase 2: Refine Expressions		   	  *
+			 * Here we refactor tokenized expression. *
+			 * 									   	  *
+			 ******************************************/
+			var result = new List<Functional>();
+			foreach (var expression in expressions)
+			{
+				// continue building expression tree //
+				var refinedExpression = BuildExpression(expression);
+				result.Add(refinedExpression);
+			}
+			return result;
+		}
+
+		private int _transformerIndex = 0;
+
+		private delegate Functional CreateFunction(object[] args);
+
+		private abstract class Functional
+		{
+			public object[] args;
+			public Functional(object[] _args)
+			{
+				args = _args;
+			}
+			//public abstract object Eval();
+			public abstract string CompileToCSharp();
+		}
+
+		private class Expression
 		{
 			public object function;
 			public object[] elements;
+			public object[] transformedElements
+			{
+				get
+				{
+					var acc = new List<object>();
+					// transform all of them //
+					foreach (var element in elements)
+					{
+						if (element.GetType() == typeof(Token))
+						{
+							var e = BuildAtom((Token)element);
+							acc.Add(e);
+						}
+						else if (element.GetType() == typeof(Expression))
+						{
+							var e = BuildExpression((Expression)element);
+							acc.Add(e);
+						}
+					}
+					return acc.ToArray();
+				}
+			}
 
 			public Expression(object[] args)
 			{
@@ -327,10 +449,6 @@ namespace Urb
 				return string.Format("({0} {1})", function.ToString(), acc);
 			}
 
-			public string TransformIntoCSharp()
-			{
-				throw new NotImplementedException();
-			}
 		}
 
 		private class List
@@ -344,6 +462,333 @@ namespace Urb
 				}
 			}
 		}
+
+		#endregion
+
+
+		#region Primitives
+		// primitive functions map //
+		private static Dictionary<string, Type> _functionMap =
+			new Dictionary<string, Type>()
+			{
+			{"require",  typeof(RequireForm)},
+			{"import",  typeof(ImportForm)},
+			{"inherit", typeof(InheritForm)},
+			{"class", typeof(ClassForm)},
+			{"progn", typeof(PrognForm)},
+			{"new", typeof(NewForm)},
+			{"set", typeof(SetForm)},
+			{"defun", typeof(DefunForm)},
+			{"label", typeof(LabelForm)},
+			{"var", typeof(VarForm)},
+			{"if", typeof(IfForm)},
+			{"and", typeof(AndForm)},
+			{"+=", typeof(AddSelfOperatorForm)},
+			{"+", typeof(AddOperatorForm)},
+			{"<", typeof(LesserOperatorForm)},
+			{">", typeof(BiggerOperatorForm)},
+			{"jump", typeof(JumpDirectiveForm)},
+			};
+
+
+		private class RequireForm : Functional
+		{
+			public RequireForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return String.Format("using {0};", (Atom)args[0]);
+			}
+		}
+
+		private class ImportForm : Functional
+		{
+			public ImportForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return String.Format("using {0};", (Atom)args[0]);
+			}
+		}
+
+		private class InheritForm : Functional
+		{
+			public InheritForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				string _targets = "";
+				if (args.Length > 2)
+				{
+					for (int i = 1; i < args.Length; i++)
+					{
+						_targets += ((Atom)args[i]).ToString();
+						// Peak of next element existence. //
+						if (i + 1 < args.Length) _targets += ", ";
+					}
+				}
+				else {
+					_targets = ((Atom)args[1]).ToString();
+				}
+				return String.Format("{0} : {1}", (Atom)args[0], _targets);
+			}
+		}
+
+		private class ClassForm : Functional
+		{
+			public ClassForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				/*************************
+				 * 
+				 * Class Form:
+				 * 
+				 * 1. policy.
+				 * 2. name/inherit.
+				 * 3. body.
+				 * 
+				 *************************/
+				var name = "";
+				var policy = "";
+				switch (args.Length)
+				{
+					case 3: // policy + name. //
+						policy = ((Atom)args[0]).ToString();
+						name = SourceEnforce(args, 1);
+						break;
+					case 2: // ignore policy. //
+						name = SourceEnforce(args, 0);
+						break;
+					default: throw new Exception("Malform Class");
+				}
+				var title = args.Length > 2 ?
+								String.Format("{0} class {1}", policy, name) :
+								String.Format("class {0}", name);
+				var body = (Functional)args[args.Length - 1];
+
+				return String.Format("{0}\n{1}", title, body.CompileToCSharp());
+			}
+		}
+
+		private class PrognForm : Functional
+		{
+			public PrognForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				var builder = new StringBuilder();
+				foreach (Functional function in args)
+				{
+					// just to hot fix //
+					if (function != null)
+						builder.AppendLine(function.CompileToCSharp());
+				}
+				return String.Format("{{\n{0}}}", builder.ToString());
+			}
+		}
+
+		private class NewForm : Functional
+		{
+			public StringBuilder type = new StringBuilder();
+			public NewForm(object[] args) : base(args)
+			{
+				for (int i = 0; i < args.Length; i++)
+				{
+					if (args[i].GetType() == typeof(Atom))
+						// normal one we get all //
+						type.Append((Atom)args[i]);
+				}
+			}
+			public override string CompileToCSharp()
+			{
+				var constructorArgs = new StringBuilder();
+				for (int i = 0; i < args.Length; i++)
+				{
+					if (args[i].GetType() != typeof(Atom))
+						// append all constructor args //
+						constructorArgs.Append(
+							((Functional)args[i])
+								.CompileToCSharp() +
+							(i + 1 < args.Length ? ", " : ""));
+				}
+				return string.Format("new {0} ({1})", type.ToString(), constructorArgs.ToString());
+			}
+		}
+
+		private class SetForm : Functional
+		{
+			public SetForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				// 3 args: policy, name & binding.
+				var policy = args.Length == 3 ? ((Atom)args[0]).ToString() : "";
+				var type = "";
+				var name = ((Atom)args[args.Length - 2]).ToString();
+				var binding = "";
+				if (args[args.Length - 1].GetType() == typeof(NewForm))
+				{
+					type = ((NewForm)args[args.Length - 1]).type.ToString();
+					binding = ((NewForm)args[args.Length - 1]).CompileToCSharp();
+				}
+				else // just value //
+				{
+					type = ((Atom)args[args.Length - 1]).value.GetType().Name;
+					binding = ((Atom)args[args.Length - 1]).ToString();
+				}
+				return String.Format("{0} {1} {2} = {3};", policy, type, name, binding);
+			}
+		}
+
+		private static string[] Pair(Atom atom)
+		{
+			return atom.value.ToString().Split(new char[] { ':' });
+		}
+
+		private class DefunForm : Functional
+		{
+			public DefunForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				/**************************
+				 * 
+				 * Defun:
+				 * 
+				 * 1. optional policy: should be attr function.
+				 * 2. name:return-type.
+				 * 3. args
+				 * 4. last is body.
+				 * 
+				 **************************/
+				var first = (Atom)args[0];
+				var policy = first.type == "symbol" ? first.value.ToString() : "";
+				var pair = Pair(policy == String.Empty ? first : ((Atom)args[1]));
+				var name = pair[0];
+				var returnType = pair[1];
+				var arguments = new StringBuilder();
+				if (policy == string.Empty && args.Length > 2 ||
+				   policy != String.Empty && args.Length > 3)
+					for (int i = policy == string.Empty ? 1 : 2; i < args.Length - 1; i++)
+					{
+						var argPair = Pair(((Atom)args[i]));
+						arguments.Append(string.Format(
+							"{0} {1}" + (i + 1 < args.Length - 1 ? ", " : ""), argPair[1], argPair[0]));
+					}
+				var body = ((Functional)args[args.Length - 1]).CompileToCSharp();
+				return String.Format("{0} {1} {2} ({3}) {4}",
+									 policy, returnType, name, arguments, body);
+			}
+		}
+
+		private class LabelForm : Functional
+		{
+			public LabelForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return String.Format("{0}:", (Atom)args[0]);
+			}
+		}
+
+		private class VarForm : Functional
+		{
+			public VarForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				var name = ((Atom)args[0]).ToString();
+				var value = args[1].GetType() == typeof(Atom) ?
+					((Atom)args[1]).value : SourceEnforce(args, 1);
+				return String.Format("var {0} = {1};", name, value);
+			}
+		}
+
+		private class IfForm : Functional
+		{
+			public IfForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				var condition = SourceEnforce(args, 0);
+				var body = SourceEnforce(args, 1);
+				return String.Format("if ( {0} ) {{\n{1}\n}}", condition, body);
+			}
+		}
+
+		private class AndForm : Functional
+		{
+			public AndForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				var acc = new StringBuilder();
+				for (int i = 0; i < args.Length; i++)
+				{
+					acc.Append(SourceEnforce(args, i) +
+							   (i + 1 < args.Length ? "&&" : ""));
+
+				}
+				return String.Format(" {0}", acc.ToString());
+			}
+		}
+
+		#region Operators
+
+		private static string OperatorTree(string _operator, object[] args)
+		{
+			var acc = new StringBuilder();
+			for (int i = 0; i < args.Length; i++)
+			{
+				var x =
+					args[i].GetType() == typeof(Atom) ?
+					((Atom)args[i]).value : SourceEnforce(args, i);
+				acc.Append(x + (i + 1 < args.Length ? _operator : ""));
+			}
+			return String.Format(" {0}", acc.ToString());
+		}
+
+		private class AddOperatorForm : Functional
+		{
+			public AddOperatorForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return OperatorTree("+", args);
+			}
+		}
+
+		private class AddSelfOperatorForm : Functional
+		{
+			public AddSelfOperatorForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return OperatorTree("+=", args) + ";";
+			}
+		}
+
+		private class LesserOperatorForm : Functional
+		{
+			public LesserOperatorForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return OperatorTree("<", args);
+			}
+		}
+
+		private class BiggerOperatorForm : Functional
+		{
+			public BiggerOperatorForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return OperatorTree(">", args);
+			}
+		}
+
+		#endregion
+
+		private class JumpDirectiveForm : Functional
+		{
+			public JumpDirectiveForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return String.Format("goto {0};", (Atom)args[0]);
+			}
+		}
+
+		#endregion
+
+		#region Statement Transformation
+
 
 		private string InspectTypeAssignment(Token[] line)
 		{
@@ -459,6 +904,7 @@ namespace Urb
 			}
 			AddSource(statement);
 		}
+
 
 		#endregion
 

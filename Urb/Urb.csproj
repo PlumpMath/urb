@@ -46,6 +46,7 @@
     <Compile Include="UrbCore.cs" />
     <Compile Include="Token.cs" />
     <Compile Include="ULisp.cs" />
+    <Compile Include="Atom.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="examples\Lisp.urb" />
