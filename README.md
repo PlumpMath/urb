@@ -114,7 +114,7 @@ The intergration can be done later when I finish this in a more tidy way :D
 
 Or you guys can lend me a hand anytime !
 
-* LISP UPDATE *
+####5.Lisp support update
 Urb now can also translate Lisp-like language with csharp keyword:
 
 	(require System)
@@ -161,4 +161,4 @@ Urb now can also translate Lisp-like language with csharp keyword:
 	    )
 	)
 
- - My aim is to make it has characteristic of Common Lisp (simple syntax & macros), CSharp keywords, and Ruby simplicity.
+ - My aim is to make it has characteristic of Common Lisp syntax & macros, CSharp keywords, and Ruby simplicity.
