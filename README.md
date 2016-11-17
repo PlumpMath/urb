@@ -1,20 +1,22 @@
 # Urb
-A Unity-compatible language inpired by ruby/forth.
+A minimal Unity-compatible language inpired by lisp/ruby.
 
 ####1. Intend
- - a C# Transformer from the mix of ruby/forth to let us have fun. I will halt this project if we don't.
+ - a thin-layer of code transformation between csharp and common lisp, with mix of ruby warmmy code style. 
  
 ####2. Core Features
- - Ruby block & syntax.
- - Forth Statement order (Experiment).
- - C# source code & assembly output.
- - Unity Editor intergration.
- - Code Intellisense MonoDevelop plugin. (If I have enough power)
+ - remain csharp familiar rules/keywords.
+ - common Lisp features/syntax and macros.
+ - maximum csharp/.net Framework compatibility.
+ - Unity editor intergration.
+ - Code Intellisense MonoDevelop plugin. 
 
 ####3. Mechanism
    
    - Urb simply transform your language into equal csharp syntax rule. 
    - It currently can work totally with 2 samples of Ruby/Lisp-like.
+
+The work flow:
 
         urb language support > tokenizer > code transformation > csharp syntax > csharp compiler > unity
 
