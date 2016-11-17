@@ -77,7 +77,7 @@ namespace Urb
 			@"(?<compiler_directive>pop|jump)|" +
 
 			//special_form
-			@"(?<special_form>inherit|defun|var|set|progn|label|end|class|import|require|if|new|with|do|and|or)|" +
+			//@"(?<special_form>inherit|defun|var|set|progn|label|end|class|import|require|if|new|with|do|and|or)|" +
 
 			// :Symbol
 			@"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -216,8 +216,7 @@ namespace Urb
 			return _token_array[_token_index + steps];
 		}
 
-		private List<string> variables = new List<string>();
-		private List<string> references = new List<string>();
+		private static List<string> references = new List<string>();
 		private void TransformTokens(Token[] tokens, List<Token> acc, bool isDebugTransform)
 		{
 			_print("\nBuilding expressions from {0} tokens...\n", tokens.Length);
@@ -296,8 +295,11 @@ namespace Urb
 
 		#region Code Transformation
 
+		private static bool _isLiteralForm = false;
+		private static int _nestedLevel = 0;
 		private class LiteralForm : Functional
 		{
+			public bool isSingleStatement = false;
 			private string _functionLiteral;
 			public LiteralForm(object[] args) : base(args) { }
 			public void Init(Atom function)
@@ -306,16 +308,20 @@ namespace Urb
 			}
 			public override string CompileToCSharp()
 			{
+				_isLiteralForm = true;
+				if (!isSingleStatement) _nestedLevel++;
 				var acc = new StringBuilder();
 				for (int i = 0; i < args.Length; i++)
 				{
-					acc.Append(
-						args[i].GetType() == typeof(Atom) ?
-						((Atom)args[i]).ToString() :
-						SourceEnforce(args, i) +
-							   (i + 1 < args.Length ? ", " : ""));
+					var arg = args[i].GetType() == typeof(Atom) ?
+						((Atom)args[i]).ToString() + " " :
+									 SourceEnforce(args, i);
+					var comma = (i + 1 < args.Length ? ", " : "");
+					acc.Append(arg + comma);
 				}
-				return string.Format(" {0} ({1})", _functionLiteral, acc.ToString());
+				return string.Format(" {0} ({1})" +
+									 (isSingleStatement ? ";" : ""),
+									 _functionLiteral, acc.ToString());
 			}
 		}
 
@@ -332,7 +338,7 @@ namespace Urb
 					case "compiler_directive":
 					case "operator":
 					case "boolean_compare":
-					case "special_form":
+					case "literal":
 						if (_functionMap.ContainsKey(token.Value))
 						{
 							// mean it's implemented primitive. //
@@ -340,13 +346,19 @@ namespace Urb
 								_functionMap[token.Value],
 								new[] { expression.transformedElements });
 						}
-						else throw new NotImplementedException("Unknown form: " + token.Value);
-
-					case "literal":
-						// normal function or invoke. //
-						var f = new LiteralForm(expression.transformedElements);
-						f.Init(new Atom(token.Name, token.Value));
-						return f;
+						else {
+							// normal function or invoke. //
+							var f = new LiteralForm(expression.transformedElements);
+							f.Init(new Atom(token.Name, token.Value));
+							if (_isLiteralForm) _nestedLevel--;
+							if (_nestedLevel == 0)
+							{
+								_isLiteralForm = false;
+								f.isSingleStatement = true;
+							}
+							return f;
+						}
+					//throw new NotImplementedException("Unknown form: " + token.Value);
 
 					default: throw new NotSupportedException(token.Name);
 				}
@@ -362,7 +374,11 @@ namespace Urb
 					return new Atom(token.Name,
 									token.Value.Substring(1, token.Value.Length - 1));
 				case "integer": return new Atom("Int32", Int32.Parse(token.Value));
-				case "float": return new Atom("float", float.Parse(token.Value.Substring(0, token.Value.Length - 1)));
+				case "float":
+					var number = float.Parse(token.Value.ToString().Substring(0,
+					  token.Value.ToString().Length - 1));
+					return new Atom("float", number);
+
 				default: return new Atom(token.Name, token.Value);
 			}
 		}
@@ -465,7 +481,6 @@ namespace Urb
 
 		#endregion
 
-
 		#region Primitives
 		// primitive functions map //
 		private static Dictionary<string, Type> _functionMap =
@@ -483,6 +498,7 @@ namespace Urb
 			{"var", typeof(VarForm)},
 			{"if", typeof(IfForm)},
 			{"and", typeof(AndForm)},
+			{"=", typeof(AssignmentForm)},
 			{"+=", typeof(AddSelfOperatorForm)},
 			{"+", typeof(AddOperatorForm)},
 			{"<", typeof(LesserOperatorForm)},
@@ -490,13 +506,14 @@ namespace Urb
 			{"jump", typeof(JumpDirectiveForm)},
 			};
 
-
 		private class RequireForm : Functional
 		{
 			public RequireForm(object[] args) : base(args) { }
 			public override string CompileToCSharp()
 			{
-				return String.Format("using {0};", (Atom)args[0]);
+				var ns = ((Atom)args[0]).ToString();
+				references.Add(ns);
+				return String.Format("using {0};", ns);
 			}
 		}
 
@@ -701,6 +718,10 @@ namespace Urb
 			public IfForm(object[] args) : base(args) { }
 			public override string CompileToCSharp()
 			{
+				//_nestedLevel++;
+				if (args[0].GetType() == typeof(LiteralForm))
+					((LiteralForm)args[0]).isSingleStatement = false;
+
 				var condition = SourceEnforce(args, 0);
 				var body = SourceEnforce(args, 1);
 				return String.Format("if ( {0} ) {{\n{1}\n}}", condition, body);
@@ -724,6 +745,18 @@ namespace Urb
 		}
 
 		#region Operators
+
+		private class AssignmentForm : Functional
+		{
+			public AssignmentForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				var name = ((Atom)args[0]).ToString();
+				var value = args[1].GetType() == typeof(Atom) ?
+					((Atom)args[1]).value : SourceEnforce(args, 1);
+				return String.Format("{0} = {1};", name, value);
+			}
+		}
 
 		private static string OperatorTree(string _operator, object[] args)
 		{
@@ -787,132 +820,11 @@ namespace Urb
 
 		#endregion
 
-		#region Statement Transformation
-
-
-		private string InspectTypeAssignment(Token[] line)
-		{
-			// normally, it's just after the '=' //
-			for (int i = 2; i < line.Length; i++)
-			{
-				// inspecting.. //
-				// AddSource(string.Format("{0}:{1}\n", i, line[i].Value));
-				switch (line[i].Name)
-				{
-					case "integer": return "Int32";
-					case "float": return "float";
-					case "string": return "String";
-					case "literal": throw new NotImplementedException(line[i].Name);
-					case "special_form":
-						switch (line[i].Value)
-						{
-							case "new":
-								_is_needed_closing = true;
-								string type = "";
-								for (int j = i + 1; j < line.Length; j++)
-								{
-									type += line[j].Value;
-								}
-								return type;
-							default: throw new NotImplementedException(line[i].Name);
-						}
-					default: throw new NotImplementedException(line[i].Name);
-				}
-			}
-			throw new NotImplementedException(line[2].ToString());
-		}
-		private bool _is_with = false;
-		private bool _is_needed_closing = false;
-		private void StatementBuild(Token[] line)
-		{
-			var statement = "";
-			var is_literal = false;
-			var is_opened = false;
-			var is_new = false;
-			_is_needed_closing = false;
-			foreach (var word in line)
-			{
-				switch (word.Name)
-				{
-					case "integer":
-					case "float":
-					case "string":
-					case "literal":
-						if (is_literal && !is_opened && !is_new && !_is_with)
-						{
-							statement += "(";
-							is_opened = true;
-						}
-						statement += word.Value + " ";
-						is_literal = true;
-						break;
-					case "instance_variable":
-						statement += string.Format("private {0} {1} ", InspectTypeAssignment(line), word.Value.Substring(1));
-						break;
-					case "global_variable":
-						statement += string.Format("public {0} {1} ", InspectTypeAssignment(line), word.Value.Substring(1));
-						break;
-					case "pair": break;
-					case "separator":
-						statement += word.Value;
-						break;
-					case "special_form": /// new / with
-						switch (word.Value)
-						{
-							case "new":
-								statement += word.Value + " ";
-								is_new = true;
-								break;
-							case "with":
-								_is_with = true;
-								statement += "( ";
-								break;
-							default: throw new NotImplementedException();
-						}
-						break;
-					case "operator":
-					case "boolean_operator":
-					case "boolean_compare":
-						statement += word.Value + " ";
-						break;
-					case "parens":
-						// Need parens converter here.
-						statement += word.ToString();
-						break;
-					default:
-						throw new NotImplementedException(
-							string.Format("Undefined {0} at:\n{1}",
-										  word.ToString(),
-										  ViewLine(line)));
-				}
-			}
-			if (!_is_with)
-			{
-				if (is_literal && is_opened) statement += ")";
-				if (_is_needed_closing) statement += "()";
-				statement += ";";
-			}
-			else if (!is_new)
-			{
-				if (_token_index < _token_array.Length)
-				{
-					/// We ignore newline.
-					//Console.WriteLine("PeakNext:" + PeakNextToken(1).Name);
-					if (PeakNextToken(1).Value != "end")
-						statement += ",";
-				}
-			}
-			AddSource(statement);
-		}
-
-
-		#endregion
-
 		#region Compiling
 
 		public void Compile(string urb_source, string fileName, bool isExe = false, bool isDebugTransform = false, bool isDebugGrammar = false)
 		{
-			Console.WriteLine("* Urb :: A Rubylike language compiler *");
+			Console.WriteLine("* Urb :: A Lisp/CSharp language compiler *");
 
 			var cs_source = ParseIntoCSharp(urb_source, isDebugTransform, isDebugGrammar);
 			_compile_csharp_source(cs_source, fileName, isExe);
