@@ -5,6 +5,8 @@
 (class :public (inherit Player MonoBehaviour)
 	(progn
 		(set :public Name "deulamco")
+		(setstatic protectedStaticA "I'm static variable.")
+
 		(set stack (new Stack <object>))
 		(set dict (new Dictionary<String,String>)) 
 
@@ -13,9 +15,13 @@
 		  	(stack.Clear)
 		  	(dict.Clear)))
 
+		(override :public ToString:string
+			(progn
+				(return "ToString is Overrided !")))
+
 		(defstatic :private static_method:void
 			(progn
-				(Console.WriteLine "Static Method !")))
+				(Console.WriteLine "This is a static method.")))
 
 		(defun :private test:void 
 		  (progn 

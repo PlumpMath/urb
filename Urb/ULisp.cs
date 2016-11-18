@@ -493,9 +493,10 @@ namespace Urb
 			{"progn", typeof(PrognForm)},
 			{"new", typeof(NewForm)},
 			{"set", typeof(SetForm)},
+			{"setstatic", typeof(SetStaticForm)},
 			{"defun", typeof(DefunForm)},
 			{"defstatic", typeof(DefstaticForm)},
-			{"defoverride", typeof(DefoverrideForm)},
+			{"override", typeof(DefoverrideForm)},
 			{"label", typeof(LabelForm)},
 			{"var", typeof(VarForm)},
 			{"if", typeof(IfForm)},
@@ -633,27 +634,44 @@ namespace Urb
 			}
 		}
 
+		private static string SetVariable(object[] args, bool isStatic = false)
+		{
+			// 3 args: policy, name & binding.
+			var policy = args.Length == 3 ? ((Atom)args[0]).ToString() : "";
+			var attribute = isStatic ? "static" : "";
+			var type = "";
+			var name = ((Atom)args[args.Length - 2]).ToString();
+			var binding = "";
+			if (args[args.Length - 1].GetType() == typeof(NewForm))
+			{
+				type = ((NewForm)args[args.Length - 1]).type.ToString();
+				binding = ((NewForm)args[args.Length - 1]).CompileToCSharp();
+			}
+			else // just value //
+			{
+				type = ((Atom)args[args.Length - 1]).value.GetType().Name;
+				binding = ((Atom)args[args.Length - 1]).ToString();
+			}
+			return String.Format("{0} {1} {2} {3} = {4};",
+				policy, attribute, type, name, binding);
+
+		}
+
 		private class SetForm : Functional
 		{
 			public SetForm(object[] args) : base(args) { }
 			public override string CompileToCSharp()
 			{
-				// 3 args: policy, name & binding.
-				var policy = args.Length == 3 ? ((Atom)args[0]).ToString() : "";
-				var type = "";
-				var name = ((Atom)args[args.Length - 2]).ToString();
-				var binding = "";
-				if (args[args.Length - 1].GetType() == typeof(NewForm))
-				{
-					type = ((NewForm)args[args.Length - 1]).type.ToString();
-					binding = ((NewForm)args[args.Length - 1]).CompileToCSharp();
-				}
-				else // just value //
-				{
-					type = ((Atom)args[args.Length - 1]).value.GetType().Name;
-					binding = ((Atom)args[args.Length - 1]).ToString();
-				}
-				return String.Format("{0} {1} {2} = {3};", policy, type, name, binding);
+				return SetVariable(args);
+			}
+		}
+
+		private class SetStaticForm : Functional
+		{
+			public SetStaticForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return SetVariable(args, isStatic: true);
 			}
 		}
 
@@ -898,7 +916,7 @@ namespace Urb
 
 		public void Compile(string urb_source, string fileName, bool isExe = false, bool isDebugTransform = false, bool isDebugGrammar = false)
 		{
-			Console.WriteLine("* Urb :: A Lisp/CSharp language compiler *");
+			Console.WriteLine("* Urb :: a minimal lisp family language compiler *");
 
 			var cs_source = ParseIntoCSharp(urb_source, isDebugTransform, isDebugGrammar);
 			_compile_csharp_source(cs_source, fileName, isExe);
