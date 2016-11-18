@@ -885,6 +885,17 @@ namespace Urb
 
 		#region Compiling
 
+		/*************************************************
+		 * 
+		 * :: COMPILER NOTE ::
+		 * 
+		 * 1) one thing is that we should compile 
+		 * each expression, one by one to be able to
+		 * interprete, debug and get intellisense 
+		 * in the future.
+		 * 
+		 *************************************************/
+
 		public void Compile(string urb_source, string fileName, bool isExe = false, bool isDebugTransform = false, bool isDebugGrammar = false)
 		{
 			Console.WriteLine("* Urb :: A Lisp/CSharp language compiler *");
