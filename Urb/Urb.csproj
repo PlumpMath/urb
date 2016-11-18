@@ -52,7 +52,7 @@
     <None Include="examples\forth.urb" />
     <None Include="examples\ruby_forth.rb" />
     <None Include="examples\Ruby.rb" />
-    <None Include="examples\Lisp.lsp" />
+    <None Include="examples\Lisp.ul" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="examples\" />
