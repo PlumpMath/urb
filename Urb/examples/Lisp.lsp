@@ -11,6 +11,28 @@
 
 ##################################################
 #												 #
+#  :: static-class ::									 #
+#												 #
+# Note that only keyword is able to has '-' in   #
+# its syntax, just for clearer meaning of a noun.#
+#												 #
+#  :: defstatic ::								 #
+#												 #
+# defstatic isn't in above order because it's a	 #
+# verb. So we don't need dash.					 #
+#												 #
+##################################################
+(static-class :public StaticLibrary
+	(progn
+		(defstatic :public HelloStatic:void
+			(progn
+				(Console.WriteLine 
+	   			"Hello from static method, inside static class !")))
+	)
+)
+
+##################################################
+#												 #
 #  :: class ::									 #
 #												 #
 # 'inherit' is like a function that output merge #

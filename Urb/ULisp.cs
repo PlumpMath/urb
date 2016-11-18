@@ -81,7 +81,7 @@ namespace Urb
 			// Label:
 			@"(?<label>[a-zA-Z0-9$_]+\:)|" +
 			// Literal
-			@"(?<literal>[a-zA-Z0-9$_.]+)|" +
+			@"(?<literal>[a-zA-Z0-9\-$_.]+)|" +
 
 			// the rest.
 			@"(?<invalid>[^\s]+)";
@@ -487,6 +487,7 @@ namespace Urb
 			{"require",  typeof(RequireForm)},
 			{"import",  typeof(ImportForm)},
 			{"inherit", typeof(InheritForm)},
+			{"static-class", typeof(StaticClassForm)},
 			{"class", typeof(ClassForm)},
 			{"progn", typeof(PrognForm)},
 			{"new", typeof(NewForm)},
@@ -552,12 +553,9 @@ namespace Urb
 			}
 		}
 
-		private class ClassForm : Functional
+		private static string DefineClass(object[] args, bool isStatic = false)
 		{
-			public ClassForm(object[] args) : base(args) { }
-			public override string CompileToCSharp()
-			{
-				/*************************
+			/*************************
 				 * 
 				 * Class Form:
 				 * 
@@ -566,25 +564,44 @@ namespace Urb
 				 * 3. body.
 				 * 
 				 *************************/
-				var name = "";
-				var policy = "";
-				switch (args.Length)
-				{
-					case 3: // policy + name. //
-						policy = ((Atom)args[0]).ToString();
-						name = SourceEnforce(args, 1);
-						break;
-					case 2: // ignore policy. //
-						name = SourceEnforce(args, 0);
-						break;
-					default: throw new Exception("Malform Class");
-				}
-				var title = args.Length > 2 ?
-								String.Format("{0} class {1}", policy, name) :
-								String.Format("class {0}", name);
-				var body = (Functional)args[args.Length - 1];
+			var name = "";
+			var policy = "";
+			switch (args.Length)
+			{
+				case 3: // policy + name. //
+					policy = ((Atom)args[0]).ToString();
+					name = SourceEnforce(args, 1);
+					break;
+				case 2: // ignore policy. //
+					name = SourceEnforce(args, 0);
+					break;
+				default: throw new Exception("Malform Class");
+			}
+			var _static = isStatic ? "static" : "";
+			var title = args.Length > 2 ?
+							String.Format("{0} {1} class {2}", policy, _static, name) :
+							String.Format("{0} class {1}", _static, name);
+			var body = (Functional)args[args.Length - 1];
 
-				return String.Format("{0}\n{1}", title, body.CompileToCSharp());
+			return String.Format("{0}\n{1}", title, body.CompileToCSharp());
+
+		}
+
+		private class StaticClassForm : Functional
+		{
+			public StaticClassForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return DefineClass(args, isStatic: true);
+			}
+		}
+
+		private class ClassForm : Functional
+		{
+			public ClassForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return DefineClass(args);
 			}
 		}
 
