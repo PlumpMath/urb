@@ -73,11 +73,8 @@ namespace Urb
 			@"(?<boolean_compare>[\>|\<|\==|\>=|\<=])|" +
 			@"(?<boolean_condition>[\|\||\&\&])|" +
 
-			//compiler_directive
-			@"(?<compiler_directive>pop|jump)|" +
-
-			//special_form
-			//@"(?<special_form>inherit|defun|var|set|progn|label|end|class|import|require|if|new|with|do|and|or)|" +
+			// #Comments
+			@"(?<comment>#.*\n)|" +
 
 			// :Symbol
 			@"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -265,7 +262,9 @@ namespace Urb
 
 						continue;
 					default:
-						if (tokens[i].Name == "newline")
+						/* Skip them all. */
+						if (tokens[i].Name == "newline" ||
+						   tokens[i].Name == "comment")
 						{
 							i++;
 							continue;
@@ -335,9 +334,8 @@ namespace Urb
 				switch (token.Name)
 				{
 					// All Primitives //
-					case "compiler_directive":
-					case "operator":
 					case "boolean_compare":
+					case "operator":
 					case "literal":
 						if (_functionMap.ContainsKey(token.Value))
 						{
