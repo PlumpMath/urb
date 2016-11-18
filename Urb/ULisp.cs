@@ -21,6 +21,7 @@ namespace Urb
 
         public ULisp()
         {
+            _print(" Urb :: a minimal lisp family language compiler ");
         }
         public class GenericClass<T>
         {
@@ -126,7 +127,7 @@ namespace Urb
         #endregion
 
         #region Line Helpers 
-        private List<string> csharp_blocks = new List<string>();
+        private List<string> _csharp_blocks = new List<string>();
 
         private void InspectLine(List<Token> line)
         {
@@ -143,7 +144,7 @@ namespace Urb
 
         private void AddSource(string line)
         {
-            csharp_blocks.Add(line);
+            _csharp_blocks.Add(line);
         }
 
         private static string SourceEnforce(object[] args, int index)
@@ -194,7 +195,7 @@ namespace Urb
             /////////////////////////////////////////
             if (isDebugTransform) Console.WriteLine("\n\n[Transformed C#] \n");
             var csharp_source = new StringBuilder();
-            foreach (var line in csharp_blocks)
+            foreach (var line in _csharp_blocks)
             {
                 if (isDebugTransform)
                     Console.WriteLine(line);
@@ -232,7 +233,7 @@ namespace Urb
 
         private int _open = 0;
         private int _close = 0;
-        private List<Expression> _expressions;
+        private List<Expression> _expressions = new List<Expression>();
 
         private Expression BuildExpression(Token[] tokens, int index)
         {
@@ -312,15 +313,24 @@ namespace Urb
                 for (int i = 0; i < args.Length; i++)
                 {
                     var arg = args[i].GetType() == typeof(Atom) ?
-                        ((Atom)args[i]).ToString() + " " :
+                        " " + ((Atom)args[i]).ToString() :
                                      SourceEnforce(args, i);
+                    // the commas part. 
                     var comma = (i + 1 < args.Length ? ", " : "");
                     acc.Append(arg + comma);
                 }
-                return string.Format(" {0} ({1})" +
-                                     (isSingleStatement ? ";" : ""),
-                                     _functionLiteral, acc.ToString());
+                return string.Format(
+                    _nTimes("    ", _nestedLevel) +
+                    " {0} ({1})" + (isSingleStatement ? ";" : ""),
+                    _functionLiteral, acc.ToString());
             }
+        }
+
+        private static string _nTimes(string ch, int time)
+        {
+            var acc = "";
+            for (int i = 1; i < time; i++) acc += ch;
+            return acc;
         }
 
         private static Functional BuildExpression(Expression expression)
@@ -499,6 +509,7 @@ namespace Urb
             {"var", typeof(VarForm)},
             {"if", typeof(IfForm)},
             {"and", typeof(AndForm)},
+            {"or", typeof(OrForm)},
             {"=", typeof(AssignmentForm)},
             {"/=", typeof(DivideSelfOperatorForm)},
             {"*=", typeof(MultiplySelfOperatorForm)},
@@ -510,6 +521,9 @@ namespace Urb
             {"/", typeof(DivideOperatorForm)},
             {"<", typeof(LesserOperatorForm)},
             {">", typeof(BiggerOperatorForm)},
+            {"==", typeof(EqualOperatorForm)},
+            {"<=", typeof(LesserEqualOperatorForm)},
+            {">=", typeof(BiggerEqualOperatorForm)},
             {"jump", typeof(JumpDirectiveForm)},
             };
 
@@ -584,8 +598,8 @@ namespace Urb
                             String.Format("{0} {1} class {2}", policy, _static, name) :
                             String.Format("{0} class {1}", _static, name);
             var body = (Functional)args[args.Length - 1];
-
-            return String.Format("{0}\n{1}", title, body.CompileToCSharp());
+            /* adding newline before new class */
+            return String.Format("\n{0}\n{1}", title, body.CompileToCSharp());
 
         }
 
@@ -607,11 +621,13 @@ namespace Urb
             }
         }
 
+        private static int _prognLevel = 0;
         private class PrognForm : Functional
         {
             public PrognForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
+                _prognLevel++;
                 var builder = new StringBuilder();
                 foreach (Functional function in args)
                 {
@@ -619,6 +635,7 @@ namespace Urb
                     if (function != null)
                         builder.AppendLine(function.CompileToCSharp());
                 }
+                _prognLevel--;
                 return String.Format("{{\n{0}}}", builder.ToString());
             }
         }
@@ -720,15 +737,25 @@ namespace Urb
             var arguments = new StringBuilder();
             if (policy == string.Empty && args.Length > 2 ||
                policy != String.Empty && args.Length > 3)
-                for (int i = policy == string.Empty ? 1 : 2; i < args.Length - 1; i++)
+                for (int i = policy == string.Empty ? 1 : 2;
+                     i < args.Length - 1; i++)
                 {
                     var argPair = Pair(((Atom)args[i]));
                     arguments.Append(string.Format(
-                        "{0} {1}" + (i + 1 < args.Length - 1 ? ", " : ""), argPair[1], argPair[0]));
+                        "{0} {1}" + (i + 1 < args.Length - 1 ? ", " : ""),
+                        argPair[1], argPair[0]));
                 }
             var body = ((Functional)args[args.Length - 1]).CompileToCSharp();
-            return String.Format("{0} {1} {2} {3} ({4}) {5}",
-            policy, attribute, returnType == "ctor" ? "" : returnType, name, arguments, body);
+            var commit = new string[] {
+                policy,
+                attribute,
+                returnType == "ctor" ? "" : returnType,
+                name,
+                arguments.ToString(),
+                body
+            };
+            /* we add newline before new function. */
+            return String.Format("\n{0} {1} {2} {3} ({4}){5}", commit);
 
         }
 
@@ -794,7 +821,16 @@ namespace Urb
 
                 var condition = SourceEnforce(args, 0);
                 var body = SourceEnforce(args, 1);
-                return String.Format("if ( {0} ) {{\n{1}\n}}", condition, body);
+                return String.Format("if ({0}) {{\n{1}\n}}", condition, body);
+            }
+        }
+
+        private class OrForm : Functional
+        {
+            public OrForm(object[] args) : base(args) { }
+            public override string CompileToCSharp()
+            {
+                return OperatorTree("||", args, isClosure: true);
             }
         }
 
@@ -803,14 +839,7 @@ namespace Urb
             public AndForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                var acc = new StringBuilder();
-                for (int i = 0; i < args.Length; i++)
-                {
-                    acc.Append(SourceEnforce(args, i) +
-                               (i + 1 < args.Length ? "&&" : ""));
-
-                }
-                return String.Format(" {0}", acc.ToString());
+                return OperatorTree("&&", args);
             }
         }
 
@@ -828,19 +857,23 @@ namespace Urb
             }
         }
 
-        private static string OperatorTree(string _operator, object[] args, bool isOnlyTwo = false)
+        private static string OperatorTree(string _operator, object[] args, bool isClosure = false, bool isOnlyTwo = false)
         {
             // adding a warning about only 2 //
-            if (isOnlyTwo) _print("warning");
+            if (isOnlyTwo && args.Length > 2)
+            {
+                throw new Exception("* warning: only 2 arguments for this operator.");
+            }
             var acc = new StringBuilder();
             for (int i = 0; i < args.Length; i++)
             {
                 var x =
                     args[i].GetType() == typeof(Atom) ?
                     ((Atom)args[i]).value : SourceEnforce(args, i);
-                acc.Append(x + " " + (i + 1 < args.Length ? _operator : ""));
+                acc.Append(String.Format(
+                    i + 1 < args.Length ? "{0} {1} " : "{0}", x, (i + 1 < args.Length ? _operator : "")));
             }
-            return String.Format(" {0}", acc.ToString());
+            return String.Format(isClosure ? "( {0} )" : "{0}", acc.ToString());
         }
 
 
@@ -885,7 +918,7 @@ namespace Urb
             public DivideSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("/=", args) + ";";
+                return OperatorTree("/=", args, isOnlyTwo: true) + ";";
             }
         }
 
@@ -894,7 +927,7 @@ namespace Urb
             public MultiplySelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("*=", args) + ";";
+                return OperatorTree("*=", args, isOnlyTwo: true) + ";";
             }
         }
 
@@ -903,7 +936,7 @@ namespace Urb
             public SubSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("-=", args) + ";";
+                return OperatorTree("-=", args, isOnlyTwo: true) + ";";
             }
         }
 
@@ -912,7 +945,7 @@ namespace Urb
             public AddSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("+=", args) + ";";
+                return OperatorTree("+=", args, isOnlyTwo: true) + ";";
             }
         }
 
@@ -921,7 +954,7 @@ namespace Urb
             public LesserOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("<", args);
+                return OperatorTree("<", args, isOnlyTwo: true);
             }
         }
 
@@ -930,7 +963,34 @@ namespace Urb
             public BiggerOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree(">", args);
+                return OperatorTree(">", args, isOnlyTwo: true);
+            }
+        }
+
+        private class EqualOperatorForm : Functional
+        {
+            public EqualOperatorForm(object[] args) : base(args) { }
+            public override string CompileToCSharp()
+            {
+                return OperatorTree("==", args, isOnlyTwo: true);
+            }
+        }
+
+        private class LesserEqualOperatorForm : Functional
+        {
+            public LesserEqualOperatorForm(object[] args) : base(args) { }
+            public override string CompileToCSharp()
+            {
+                return OperatorTree("<=", args, isOnlyTwo: true);
+            }
+        }
+
+        private class BiggerEqualOperatorForm : Functional
+        {
+            public BiggerEqualOperatorForm(object[] args) : base(args) { }
+            public override string CompileToCSharp()
+            {
+                return OperatorTree(">=", args, isOnlyTwo: true);
             }
         }
 
@@ -962,8 +1022,7 @@ namespace Urb
 
         public void Compile(string urb_source, string fileName, bool isExe = false, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
-            Console.WriteLine("* Urb :: a minimal lisp family language compiler *");
-
+            _reset_state();
             var cs_source = ParseIntoCSharp(urb_source, isDebugTransform, isDebugGrammar);
             _compile_csharp_source(cs_source, fileName, isExe);
         }
@@ -996,6 +1055,19 @@ namespace Urb
                 Console.WriteLine("Source built into {0} successfully.",
                 result.PathToAssembly);
             }
+        }
+
+        private void _reset_state()
+        {
+            _csharp_blocks.Clear();
+            _expressions.Clear();
+            _isLiteralForm = false;
+            _nestedLevel = 0;
+            _open = _close = 0;
+            _prognLevel = 0;
+            _token_array = null;
+            _token_index = -1;
+            _transformerIndex = -1;
         }
 
         #endregion

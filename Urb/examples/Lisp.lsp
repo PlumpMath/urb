@@ -96,7 +96,8 @@
 			(var i 0)
 			(+= i 1)
 			(Console.WriteLine i)
-			(if (and (< i 10) (< -1 i))
+			(if (and (< i 10) (< -1 i) 
+				(or true false))
 			# jump to the defined label.
 				(jump Condition))
 			(var result i)
