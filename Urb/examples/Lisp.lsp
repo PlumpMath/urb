@@ -13,6 +13,10 @@
 		  	(stack.Clear)
 		  	(dict.Clear)))
 
+		(defstatic :private static_method:void
+			(progn
+				(Console.WriteLine "Static Method !")))
+
 		(defun :private test:void 
 		  (progn 
 		  	(label Condition)

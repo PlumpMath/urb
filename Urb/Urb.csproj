@@ -49,10 +49,10 @@
     <Compile Include="Atom.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="examples\Lisp.urb" />
     <None Include="examples\forth.urb" />
     <None Include="examples\ruby_forth.rb" />
     <None Include="examples\Ruby.rb" />
+    <None Include="examples\Lisp.lsp" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="examples\" />

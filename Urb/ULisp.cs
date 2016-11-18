@@ -494,6 +494,8 @@ namespace Urb
 			{"new", typeof(NewForm)},
 			{"set", typeof(SetForm)},
 			{"defun", typeof(DefunForm)},
+			{"defstatic", typeof(DefstaticForm)},
+			{"defoverride", typeof(DefoverrideForm)},
 			{"label", typeof(LabelForm)},
 			{"var", typeof(VarForm)},
 			{"if", typeof(IfForm)},
@@ -501,6 +503,9 @@ namespace Urb
 			{"=", typeof(AssignmentForm)},
 			{"+=", typeof(AddSelfOperatorForm)},
 			{"+", typeof(AddOperatorForm)},
+			{"-", typeof(SubOperatorForm)},
+			{"*", typeof(MultipleOperatorForm)},
+			{"/", typeof(DivideOperatorForm)},
 			{"<", typeof(LesserOperatorForm)},
 			{">", typeof(BiggerOperatorForm)},
 			{"jump", typeof(JumpDirectiveForm)},
@@ -657,38 +662,68 @@ namespace Urb
 			return atom.value.ToString().Split(new char[] { ':' });
 		}
 
+		private static string BuildMethod
+		(object[] args, bool isStatic = false, bool isOverride = false)
+		{
+			/**************************************************
+			 * 
+			 * Defun:
+			 * 
+			 * 1. optional policy: private/protected/public.
+			 * 2. optional attributes: static/overload. 
+			 * 3. name:return-type.
+			 * 4. args.
+			 * last. body.
+			 * 
+			 **************************************************/
+			var first = (Atom)args[0];
+			var policy = first.type == "symbol" ? first.value.ToString() : "";
+			var attribute = isStatic ? "static" : isOverride ? "override" : "";
+			var pair = Pair(policy == String.Empty ? first : ((Atom)args[1]));
+			var name = pair[0];
+			var returnType = pair[1];
+			var arguments = new StringBuilder();
+			if (policy == string.Empty && args.Length > 2 ||
+			   policy != String.Empty && args.Length > 3)
+				for (int i = policy == string.Empty ? 1 : 2; i < args.Length - 1; i++)
+				{
+					var argPair = Pair(((Atom)args[i]));
+					arguments.Append(string.Format(
+						"{0} {1}" + (i + 1 < args.Length - 1 ? ", " : ""), argPair[1], argPair[0]));
+				}
+			var body = ((Functional)args[args.Length - 1]).CompileToCSharp();
+			return String.Format("{0} {1} {2} {3} ({4}) {5}",
+			policy, attribute, returnType, name, arguments, body);
+
+		}
+
 		private class DefunForm : Functional
 		{
+			public bool isStatic = false;
 			public DefunForm(object[] args) : base(args) { }
 			public override string CompileToCSharp()
 			{
-				/**************************
-				 * 
-				 * Defun:
-				 * 
-				 * 1. optional policy: should be attr function.
-				 * 2. name:return-type.
-				 * 3. args
-				 * 4. last is body.
-				 * 
-				 **************************/
-				var first = (Atom)args[0];
-				var policy = first.type == "symbol" ? first.value.ToString() : "";
-				var pair = Pair(policy == String.Empty ? first : ((Atom)args[1]));
-				var name = pair[0];
-				var returnType = pair[1];
-				var arguments = new StringBuilder();
-				if (policy == string.Empty && args.Length > 2 ||
-				   policy != String.Empty && args.Length > 3)
-					for (int i = policy == string.Empty ? 1 : 2; i < args.Length - 1; i++)
-					{
-						var argPair = Pair(((Atom)args[i]));
-						arguments.Append(string.Format(
-							"{0} {1}" + (i + 1 < args.Length - 1 ? ", " : ""), argPair[1], argPair[0]));
-					}
-				var body = ((Functional)args[args.Length - 1]).CompileToCSharp();
-				return String.Format("{0} {1} {2} ({3}) {4}",
-									 policy, returnType, name, arguments, body);
+				return BuildMethod(args);
+			}
+		}
+
+		private class DefstaticForm : Functional
+		{
+			public bool isStatic = false;
+			public DefstaticForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return BuildMethod(args, isStatic: true);
+			}
+		}
+
+		private class DefoverrideForm : Functional
+		{
+			public bool isStatic = false;
+			public DefoverrideForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return BuildMethod(args, isOverride: true);
 			}
 		}
 
@@ -769,6 +804,34 @@ namespace Urb
 				acc.Append(x + (i + 1 < args.Length ? _operator : ""));
 			}
 			return String.Format(" {0}", acc.ToString());
+		}
+
+
+		private class DivideOperatorForm : Functional
+		{
+			public DivideOperatorForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return OperatorTree("/", args);
+			}
+		}
+
+		private class MultipleOperatorForm : Functional
+		{
+			public MultipleOperatorForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return OperatorTree("*", args);
+			}
+		}
+
+		private class SubOperatorForm : Functional
+		{
+			public SubOperatorForm(object[] args) : base(args) { }
+			public override string CompileToCSharp()
+			{
+				return OperatorTree("-", args);
+			}
 		}
 
 		private class AddOperatorForm : Functional
