@@ -1,6 +1,3 @@
-(require System)
-(require UnityEngine)
-(import System.Collections.Generic)
 #############################################
 #											#
 # 'require' will add reference the library, #
@@ -8,10 +5,14 @@
 # 'import' just using the subset.			#
 #											#
 #############################################
+(require System)
+(require UnityEngine)
+(import System.Collections.Generic)
+
 
 ##################################################
 #												 #
-#  :: static-class ::									 #
+#  :: static-class ::							 #
 #												 #
 # Note that only keyword is able to has '-' in   #
 # its syntax, just for clearer meaning of a noun.#
@@ -24,10 +25,30 @@
 ##################################################
 (static-class :public StaticLibrary
 	(progn
+
+		# static method.
 		(defstatic :public HelloStatic:void
 			(progn
 				(Console.WriteLine 
 	   			"Hello from static method, inside static class !")))
+
+	   	# object array argument test.
+	   	(defstatic DemoBrace:void
+	   		arg:object[]
+	   		(progn))
+
+	   	# object generic argument test.
+	   	(defstatic DemoBrace:void
+	   		arg:Dictionary<string,object>
+	   		(progn))
+	)
+)
+# generic class:
+(class :public GenericClass<T> 
+	(progn
+		# generic constructor:
+		(defun :public GenericClass:ctor type:T
+			(progn))
 	)
 )
 
