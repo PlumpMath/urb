@@ -1,20 +1,21 @@
-# Urb
-A minimal Unity-compatible language inpired by lisp/ruby.
+# UFO
+Stay for uForth or micro-forth. 
+A minimal Unity-compatible language inpired by lisp/ruby/forth.
 
 ####1. Intend
- - a thin-layer of code transformation between csharp and common lisp, with mix of ruby warmmy code style. 
+ - a thin-layer of code transformation between csharp, forth and common lisp, with mix of ruby warmmy code style. 
  
 ####2. Core Features
- - remain csharp familiar rules/keywords.
- - common Lisp features/syntax and macros.
- - maximum csharp/.net Framework compatibility.
+ - lisp macros.
+ - ruby clean syntax style.
+ - forth stack and post-fix order in statement.
+ - remain csharp familiar keywords.
+ - maximum .net Framework compatibility.
  - Unity editor intergration.
- - Code Intellisense MonoDevelop plugin. 
 
 ####3. Mechanism
    
-   - Urb simply transform your language into equal csharp syntax rule. 
-   - It currently can work totally with 2 samples of Ruby/Lisp-like.
+   - Urb simply transform your language into equal csharp syntax rules, yes, I'm doing the code generation way.
 
 The work flow:
 
@@ -22,145 +23,72 @@ The work flow:
 
 ####4. Examples
 
-  - Ruby-like syntax:
+	###############################################
+	# :: ufo - a stack-based lisp language ::
+	#
+	# special is like dig a hole to wait for arguments
+	# then execute when it has enough.
+	# special form can goes for special hole
+	# when statement is evaluated post-fix order.
+	#
+	###############################################
+	(def (x:int -> square:int) ((x x *)))
 
-        import System
-        import UnityEngine
-        require System.Collections.Generic
+	(12 square) # get eval anyway but don't store.
 
-        class Player < MonoBehaviour
+	#
+	# @ - un-eval mode 
+	# ! - eval mode
+	#
+	(12 13 @ square ! map) # goes on evaluation stack for the result.
 
-          $Name = "deulamco"
-          @dict = new Dictionary <String,String> 
-          @stack = new Stack <object> 
-            
-          def test:void
-            Condition:
-            var i = 0
-            i += 1
-            Console.WriteLine i
-            if i < 10 and -1 < i
-              jump Condition
-            end
-            var result = i
-            dict.Clear ()
-            stack.Clear ()
+	(1 2 3 @ + ! reduce) # => 6 on stack.
 
-            Console.WriteLine "Good bye with result: {0}", result
-          end
+	(System System.IO @ using ! map)
 
-          def set_position:void x:float y:float z:float
-            transform.position = new Vector3 with
-              transform.position.x + x
-              transform.position.y + y
-              transform.position.z + z 
-            end
-          end
-             
-          def Update:void
-            if Input.GetKey KeyCode.DownArrow
-              set_position 0f, -0.1f, 0f
-            end
-          end
-        end
+	(namespace Urb)
 
-  ... into this: 
+	(MainClass :partial :public :static class)
 
-        using System;
-        using UnityEngine;
-        using System.Collections.Generic;
+	("deulamco" Name :public set)
 
-        class Player : MonoBehaviour {
-          public String Name = "deulamco" ;
-          private Dictionary<String,String> dict = new Dictionary < String ,String > ();
-          private Stack<object> stack = new Stack < object > ();
+	("Static variable." StaticA :public :static set)
 
-          public void test (  ) {
-            Condition:
-            var i = 0 ;
-            i += (1 );
-            Console.WriteLine (i );
-            if (i < 10 && -1 < i ){
-              goto Condition;
-            }
-            var result = i ;
-            dict.Clear () ;
-            dict.Clear () ;
-            
-            Console.WriteLine ("Good bye with result:{0}", result );
-          }
+	(def (_ -> Main:void) :static :public
+		(((ULisp new) uLisp var)))
 
-          public void set_position ( float x, float y, float z ) {
-            transform.position = new Vector3 ( 
-              transform.position.x + x ,
-              transform.position.y + y ,
-              transform.position.z + z 
-            );
-          }
+	(def (_ -> ToString:string) :public :override
+		(" ToString is overrided."))
 
-          public void Update (  ) {
-            if (Input.GetKey (KeyCode.DownArrow)){
-              set_position (0f ,-0.1f ,0f );
-            }
-          }
-        }
+	(def (_ -> static_method:void) :static :private
+		((" This's static method." Console.WriteLine)))
 
-And then into the Assembly form of DLL or EXE, as the compiler setting at:
+	(def (_ -> test:void) :private
+		((Condition label)
+		 (0 i var)
+		 (1 i +=)
+		 (i Console.WriteLine)
+		 (((-1 i <) (10 i <)
+		  ((true false) or) and)
+		  (Condition jump) if)
+		 (i result var)
+		 (result Console.WriteLine)))
 
-    var urb = new UrbCore();
-    var source = File.ReadAllText("../../examples/Ruby.rb");
-    urb.Compile(source, "demo.dll", isExe: false);
+	(def (x:float y:float z:float -> set_position:void) :public
+		(((
+		  (transform.position.z z +)
+		  (transform.position.y y +)
+		  (transform.position.x x +)
+		  Vector3 new) transform.position =)))
 
-Actually, you can just throw that assembly into Unity Assets folder to use it as a component anyway. 
-The intergration can be done later when I finish this in a more tidy way :D
+	(def (_ -> Update:void)
+		(((KeyCode.DownArrow Input.GetKey)
+		  (0f -1.0f 0f set_position) if)))
 
-Or you guys can lend me a hand anytime !
+	(endclass)
 
-####5.Lisp support update
-Urb now can also translate Lisp-like language with csharp keyword:
+I was experiment with all language samples transformation that can be translated into the same C# source. Just to find a way to express my thought style the most into programming. So in the end, I borrow from them all the characteristic I like the most.
 
-	(require System)
-	(require UnityEngine)
-	(import System.Collections.Generic)
-
-	(class :public (inherit Player MonoBehaviour)
-	    (progn
-		(set :public Name "deulamco")
-		(set stack (new Stack <object>))
-		(set dict (new Dictionary<String,String>)) 
-
-		(defun Start:void
-		  (progn
-		  	(stack.Clear)
-		  	(dict.Clear)))
-
-		(defun :private test:void 
-		  (progn 
-		  	(label Condition)
-			(var i 0)
-			(+= i 1)
-			(Console.WriteLine i)
-			(if (and (< i 10) (< -1 i))
-				(jump Condition))
-			(var result i)
-			(Console.WriteLine "Good bye {0} !" result)))
-
-		(defun :public set_position:void 
-			x:float 
-			y:float 
-			z:float
-		  (progn 
-		  	(= transform.position 
-		    (new Vector3 
-		    (+ transform.position.x x)
-		    (+ transform.position.y y)
-	 	    (+ transform.position.z z)))))
-		   
-		(defun Update:void
-		  (progn
-		    (if (Input.GetKey KeyCode.DownArrow)
-		    ( set_position 0f -1.0f 0f))))
-	    )
-	)
-
- - My aim is to make it has characteristic of Common Lisp syntax & macros, CSharp keywords, and Ruby simplicity.
+Certainly, this is still experiment.
+ You will know when it's ready. 
+ The world will know :)
