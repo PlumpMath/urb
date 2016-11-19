@@ -22,15 +22,7 @@ namespace Urb
             // it's not ready yet.
             // uLisp.ReplSession();
 
-            // testing:
-            uLisp.ReplTest(@"
-            (defun square:int x:int
-                (progn
-                    (return (* x x))))
 
-            (Console.WriteLine
-                (square 12))
-");
         }
     }
 }
