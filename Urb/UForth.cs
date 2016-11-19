@@ -22,7 +22,7 @@ namespace Urb
 
         public UForth()
         {
-            _print(" Urb :: a minimal lisp family language compiler ");
+            _print(" uForth :: a minimal lisp family language compiler ");
         }
         public class GenericClass<T>
         {
@@ -51,6 +51,10 @@ namespace Urb
             @"(?<newline>\n\t|\n|\r|\r\n)|" +
             // \t
             @"(?<tab>\t)|" +
+            // un-eval mode
+            @"(?<uneval_mode>\@)|" +
+            // eval mode
+            @"(?<eval_mode>\!)|" +
             // comma, () and []
             @"(?<separator>,|\(|\)|\[|\])|" +
             // string " "
@@ -169,7 +173,7 @@ namespace Urb
         private int _token_index = -1;
 
         // Well, I think we should play dirty :P 
-        public List<Functional> Lexer(List<Token> token_list, bool isDebugTransform = false)
+        public List<Block> Lexer(List<Token> token_list, bool isDebugTransform = false)
         {
             if (isDebugTransform) Console.WriteLine("Lexing..");
 
@@ -189,11 +193,12 @@ namespace Urb
             return functions;
         }
 
-        private string _transformIntoCSharp(List<Functional> functions, bool isDebugTransform = false)
+        private string _transformIntoCSharp(List<Block> blocks, bool isDebugTransform = false)
         {
-            foreach (var function in functions)
+            foreach (var block in blocks)
             {
-                AddSource(function.CompileToCSharp());
+                /* NOT AVAILABLE NOW */
+                //AddSource(block.CompileToCSharp());
             }
             /////////////////////////////////////////
             ///                                   ///
@@ -226,7 +231,7 @@ namespace Urb
         {
             _print("\nBuilding expressions from {0} tokens...\n", tokens.Length);
             _transformerIndex = 0;
-            _expressions = new List<Expression>();
+            _expressions = new List<Block>();
 
             while (_transformerIndex < tokens.Length - 1)
             {
@@ -241,9 +246,9 @@ namespace Urb
 
         private int _open = 0;
         private int _close = 0;
-        private List<Expression> _expressions = new List<Expression>();
+        private List<Block> _expressions = new List<Block>();
 
-        private Expression BuildExpression(Token[] tokens, int index)
+        private Block BuildExpression(Token[] tokens, int index)
         {
             var acc = new List<object>();
             var i = index;
@@ -257,7 +262,7 @@ namespace Urb
                         _print(" )");
                         //_print(" end#{0} \n", _transformerIndex);
                         _transformerIndex = i + 1;
-                        return new Expression(acc.ToArray());
+                        return new Block(acc.ToArray());
 
                     case "(":
                         _open++;
@@ -341,44 +346,23 @@ namespace Urb
             return acc;
         }
 
-        private static Functional _buildExpression(Expression expression)
+        private static Block _insertPrimitives(Block block)
         {
-            // We plugin all special forms here. //
-            if (expression.function.GetType() == typeof(Token))
+            var acc = new List<object>();
+            foreach (var element in block.elements)
             {
-                // transform it into primitive if possible //
-                var token = (Token)expression.function;
-                switch (token.Name)
+                // A Block //
+                if (element.GetType() == typeof(Block))
                 {
-                    // All Primitives //
-                    case "boolean_compare":
-                    case "operator":
-                    case "literal":
-                        if (_primitiveForms.ContainsKey(token.Value))
-                        {
-                            // mean it's implemented primitive. //
-                            return (Functional)Activator.CreateInstance(
-                                _primitiveForms[token.Value],
-                                new[] { expression.transformedElements });
-                        }
-                        else {
-                            // normal function or invoke. //
-                            var f = new LiteralForm(expression.transformedElements);
-                            f.Init(new Atom(token.Name, token.Value));
-                            if (_isLiteralForm) _nestedLevel--;
-                            if (_nestedLevel == 0)
-                            {
-                                _isLiteralForm = false;
-                                f.isSingleStatement = true;
-                            }
-                            return f;
-                        }
-                    //throw new NotImplementedException("Unknown form: " + token.Value);
-
-                    default: throw new NotSupportedException(token.Name);
+                    acc.Add(_insertPrimitives((Block)element));
+                }
+                // An Atom //
+                else if (element.GetType() == typeof(Token))
+                {
+                    acc.Add(_buildAtom((Token)element));
                 }
             }
-            return null;
+            return new Block(acc.ToArray());
         }
 
         private static Atom _buildAtom(Token token)
@@ -398,7 +382,7 @@ namespace Urb
             }
         }
 
-        private List<Functional> _refineExpressions(List<Expression> expressions)
+        private List<Block> _refineExpressions(List<Block> expressions)
         {
             /******************************************
              *                                        *
@@ -406,17 +390,17 @@ namespace Urb
              * Here we refactor tokenized expression. *
              *                                        *
              ******************************************/
-            var result = new List<Functional>();
+            var result = new List<Block>();
             foreach (var expression in expressions)
             {
                 // continue building expression tree //
-                var refinedExpression = _buildExpression(expression);
+                var refinedExpression = _insertPrimitives(expression);
                 result.Add(refinedExpression);
             }
             return result;
         }
 
-        public List<Functional> BuildFunctionalTree
+        public List<Block> BuildFunctionalTree
         (string source, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
             // We need to eat the token here with a Lexer !
@@ -451,9 +435,8 @@ namespace Urb
             public abstract string CompileToCSharp();
         }
 
-        public class Expression
+        public class Block
         {
-            public object function;
             public object[] elements;
             public object[] transformedElements
             {
@@ -468,9 +451,9 @@ namespace Urb
                             var e = _buildAtom((Token)element);
                             acc.Add(e);
                         }
-                        else if (element.GetType() == typeof(Expression))
+                        else if (element.GetType() == typeof(Block))
                         {
-                            var e = _buildExpression((Expression)element);
+                            var e = _insertPrimitives((Block)element);
                             acc.Add(e);
                         }
                     }
@@ -478,26 +461,16 @@ namespace Urb
                 }
             }
 
-            public Expression(object[] args)
+            public Block(object[] _elements)
             {
-                if (args.Length != 0)
-                {
-                    elements = new object[args.Length - 1];
-                    function = args[0];
-                    // copying... //
-                    for (int i = 1; i < args.Length; i++)
-                    {
-                        elements[i - 1] = args[i];
-                    }
-                    // done ! //
-                }
+                elements = _elements;
             }
 
             public override string ToString()
             {
                 var acc = "";
                 foreach (var obj in elements) acc += obj.ToString() + " ";
-                return string.Format("({0} {1})", function.ToString(), acc);
+                return string.Format("({0})", acc);
             }
 
         }
@@ -524,15 +497,10 @@ namespace Urb
             {"require",  typeof(RequireForm)},
             {"import",  typeof(ImportForm)},
             {"inherit", typeof(InheritForm)},
-            {"static-class", typeof(StaticClassForm)},
             {"class", typeof(ClassForm)},
-            {"progn", typeof(PrognForm)},
             {"new", typeof(NewForm)},
             {"set", typeof(SetForm)},
-            {"setstatic", typeof(SetStaticForm)},
-            {"defun", typeof(DefunForm)},
-            {"defstatic", typeof(DefstaticForm)},
-            {"override", typeof(DefoverrideForm)},
+            {"def", typeof(DefForm)},
             {"return", typeof(ReturnForm)},
             {"label", typeof(LabelForm)},
             {"var", typeof(VarForm)},
@@ -632,40 +600,12 @@ namespace Urb
 
         }
 
-        private class StaticClassForm : Functional
-        {
-            public StaticClassForm(object[] args) : base(args) { }
-            public override string CompileToCSharp()
-            {
-                return DefineClass(args, isStatic: true);
-            }
-        }
-
         private class ClassForm : Functional
         {
             public ClassForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return DefineClass(args);
-            }
-        }
-
-        private static int _prognLevel = 0;
-        private class PrognForm : Functional
-        {
-            public PrognForm(object[] args) : base(args) { }
-            public override string CompileToCSharp()
-            {
-                _prognLevel++;
-                var builder = new StringBuilder();
-                foreach (Functional function in args)
-                {
-                    // just to hot fix //
-                    if (function != null)
-                        builder.AppendLine(function.CompileToCSharp());
-                }
-                _prognLevel--;
-                return String.Format("{{\n{0}}}", builder.ToString());
             }
         }
 
@@ -729,14 +669,6 @@ namespace Urb
             }
         }
 
-        private class SetStaticForm : Functional
-        {
-            public SetStaticForm(object[] args) : base(args) { }
-            public override string CompileToCSharp()
-            {
-                return SetVariable(args, isStatic: true);
-            }
-        }
 
         private static string[] Pair(Atom atom)
         {
@@ -788,35 +720,16 @@ namespace Urb
 
         }
 
-        private class DefunForm : Functional
+        private class DefForm : Functional
         {
             public bool isStatic = false;
-            public DefunForm(object[] args) : base(args) { }
+            public DefForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return BuildMethod(args);
             }
         }
 
-        private class DefstaticForm : Functional
-        {
-            public bool isStatic = false;
-            public DefstaticForm(object[] args) : base(args) { }
-            public override string CompileToCSharp()
-            {
-                return BuildMethod(args, isStatic: true);
-            }
-        }
-
-        private class DefoverrideForm : Functional
-        {
-            public bool isStatic = false;
-            public DefoverrideForm(object[] args) : base(args) { }
-            public override string CompileToCSharp()
-            {
-                return BuildMethod(args, isOverride: true);
-            }
-        }
 
         private class ReturnForm : Functional
         {
@@ -1046,23 +959,25 @@ namespace Urb
         #endregion
 
         #region Interpreter
-        public void EvalTree(List<Functional> tree)
+        public void EvalTree(List<Block> tree)
         {
-            foreach (var function in tree)
+            _print("\n" + _nTimes("_", 80) + "\n");
+            _print("\n* Evaluating Tree...*\n");
+            foreach (var block in tree)
             {
-                _print(EvalFunction(function) + "\n");
+                _print(EvalBlock(block) + "\n");
             }
         }
-        public string EvalFunction(Functional function)
+        public string EvalBlock(Block block)
         {
             var acc = new StringBuilder();
             var args = new StringBuilder();
-            foreach (var arg in function.args)
+            foreach (var arg in block.elements)
             {
                 //_print("{0} ", arg.GetType().Name);
-                if (arg.GetType().IsSubclassOf(typeof(Functional)))
+                if (arg.GetType().IsSubclassOf(typeof(Block)))
                 {
-                    args.Append(EvalFunction(arg as Functional) + " ");
+                    args.Append(EvalBlock(arg as Block) + " ");
                 }
                 else
                 {
@@ -1070,12 +985,13 @@ namespace Urb
                 }
             }
             acc.Append(String.Format("\n[ {0} {1} ]",
-                function.GetType().Name, args.ToString()));
+                block.GetType().Name, args.ToString()));
             return acc.ToString();
         }
         public void ReplTest(string source)
         {
             EvalTree(BuildFunctionalTree(source));
+            //var block = BuildFunctionalTree(source);
         }
         /****************************************
          * 
@@ -1193,7 +1109,6 @@ namespace Urb
             _isLiteralForm = false;
             _nestedLevel = 0;
             _open = _close = 0;
-            _prognLevel = 0;
             _token_array = null;
             _token_index = -1;
             _transformerIndex = -1;

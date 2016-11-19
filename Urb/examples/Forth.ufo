@@ -6,7 +6,7 @@
 # when statement is evaluated post-fix order.
 #
 ###############################################
-(def (x:int -> square:int) (x x *))
+(def (x:int -> square:int) ((x x *)))
 
 (12 square) # get eval anyway but don't store.
 
@@ -20,7 +20,7 @@
 
 (System System.IO @ using ! map)
 
-(namespace Urb)
+(Urb namespace)
 
 (MainClass :partial :public :static class)
 
@@ -35,15 +35,16 @@
 	(" ToString is overrided."))
 
 (def (_ -> static_method:void) :static :private
-	(" This's static method." Console.WriteLine))
+	((" This's static method." Console.WriteLine)))
 
 (def (_ -> test:void) :private
 	((Condition label)
 	 (0 i var)
 	 (1 i +=)
 	 (i Console.WriteLine)
-	 (((-1 i <) (10 i <)
-	  ((true false) or) and)
+	 (((-1 i <) 
+	   (10 i <)
+	   (true false or) and)
 	  (Condition jump) if)
 	 (i result var)
 	 (result Console.WriteLine)))
