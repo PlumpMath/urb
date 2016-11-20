@@ -12,7 +12,7 @@
 
 #
 # @ - un-eval mode 
-# ! - eval mode
+# ! - runtime-eval mode
 #
 (12 13 @ square ! map) # goes on evaluation stack for the result.
 

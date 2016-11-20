@@ -55,6 +55,8 @@ namespace Urb
             @"(?<uneval_mode>\@)|" +
             // eval mode
             @"(?<eval_mode>\!)|" +
+            // forward
+            @"(?<forward>-\>)|" +
             // comma, () and []
             @"(?<separator>,|\(|\)|\[|\])|" +
             // string " "
@@ -313,7 +315,7 @@ namespace Urb
         {
             public bool isSingleStatement = false;
             private string _functionLiteral;
-            public LiteralForm(object[] args) : base(args) { }
+            public LiteralForm() : base() { }
             public void Init(Atom function)
             {
                 _functionLiteral = function.value.ToString();
@@ -346,6 +348,41 @@ namespace Urb
             return acc;
         }
 
+        private static object _insertElement(object element, Block block)
+        {
+            var cast = (Token)element;
+            // primitives form: //
+            if (_primitiveForms.ContainsKey(cast.Value))
+            {
+                ///////////////////////////////////////////////////
+                //                                               //
+                // We have a evaluation stack already.           //
+                // so this rev/rest seem to be not in-need.      //
+                // along with block to have overload enforcement.//
+                // 
+                // 
+                //                                               //
+                ///////////////////////////////////////////////////
+                return
+                    (Functional)Activator.CreateInstance(
+                        _primitiveForms[cast.Value],
+                        new[] { _insertPrimitives(block).revRest });
+            }
+            // special form: //
+            else if (_specialForms.ContainsKey(cast.Value))
+            {
+                return
+                    (Functional)Activator.CreateInstance(
+                        _specialForms[cast.Value],
+                        new[] { _insertPrimitives(block).rest });
+            }
+            // literal or atoms //
+            else
+            {
+                return _buildAtom(cast);
+            }
+        }
+
         private static Block _insertPrimitives(Block block)
         {
             var acc = new List<object>();
@@ -354,12 +391,15 @@ namespace Urb
                 // A Block //
                 if (element.GetType() == typeof(Block))
                 {
-                    acc.Add(_insertPrimitives((Block)element));
+                    acc.Add(
+                        _insertPrimitives((Block)element));
+
                 }
                 // An Atom //
                 else if (element.GetType() == typeof(Token))
                 {
-                    acc.Add(_buildAtom((Token)element));
+                    acc.Add(
+                        _insertElement(element, block));
                 }
             }
             return new Block(acc.ToArray());
@@ -427,40 +467,56 @@ namespace Urb
         public abstract class Functional
         {
             public object[] args;
-            public Functional(object[] _args)
-            {
-                args = _args;
-            }
+
+            public Functional() { }
+
             //public abstract object Eval();
+
             public abstract string CompileToCSharp();
+
+            public override string ToString()
+            {
+                return string.Format("{0}", this.GetType().Name);
+            }
         }
 
         public class Block
         {
             public object[] elements;
-            public object[] transformedElements
+            public object[] rest
             {
                 get
                 {
-                    var acc = new List<object>();
-                    // transform all of them //
-                    foreach (var element in elements)
-                    {
-                        if (element.GetType() == typeof(Token))
-                        {
-                            var e = _buildAtom((Token)element);
-                            acc.Add(e);
-                        }
-                        else if (element.GetType() == typeof(Block))
-                        {
-                            var e = _insertPrimitives((Block)element);
-                            acc.Add(e);
-                        }
-                    }
-                    return acc.ToArray();
+                    if (elements == null || elements.Length == 0) return null;
+                    var lst = new List<object>(elements);
+                    lst.Remove(elements[0]);
+                    return lst.ToArray();
                 }
             }
-
+            public object[] revRest
+            {
+                get
+                {
+                    if (elements == null || elements.Length == 0) return null;
+                    var lst = new List<object>(elements);
+                    lst.Remove(elements[elements.Length - 1]);
+                    return lst.ToArray();
+                }
+            }
+            public object head
+            {
+                get
+                {
+                    return elements.Length > 0 ? elements[0] : null;
+                }
+            }
+            public object last
+            {
+                get
+                {
+                    return elements.Length > 0 ? elements[elements.Length - 1] : null;
+                }
+            }
             public Block(object[] _elements)
             {
                 elements = _elements;
@@ -472,7 +528,6 @@ namespace Urb
                 foreach (var obj in elements) acc += obj.ToString() + " ";
                 return string.Format("({0})", acc);
             }
-
         }
 
         public class List
@@ -489,7 +544,14 @@ namespace Urb
 
         #endregion
 
-        #region Primitives
+        #region Primitive & Special Forms
+
+        private static Dictionary<string, Type> _specialForms =
+            new Dictionary<string, Type>()
+            {
+            {"def", typeof(DefForm)}
+            };
+
         // primitive functions map //
         private static Dictionary<string, Type> _primitiveForms =
             new Dictionary<string, Type>()
@@ -498,9 +560,10 @@ namespace Urb
             {"import",  typeof(ImportForm)},
             {"inherit", typeof(InheritForm)},
             {"class", typeof(ClassForm)},
+            {"endclass", typeof(EndClassForm)},
             {"new", typeof(NewForm)},
             {"set", typeof(SetForm)},
-            {"def", typeof(DefForm)},
+
             {"return", typeof(ReturnForm)},
             {"label", typeof(LabelForm)},
             {"var", typeof(VarForm)},
@@ -526,7 +589,6 @@ namespace Urb
 
         private class RequireForm : Functional
         {
-            public RequireForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 var ns = ((Atom)args[0]).ToString();
@@ -537,7 +599,6 @@ namespace Urb
 
         private class ImportForm : Functional
         {
-            public ImportForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return String.Format("using {0};", (Atom)args[0]);
@@ -546,7 +607,6 @@ namespace Urb
 
         private class InheritForm : Functional
         {
-            public InheritForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 string _targets = "";
@@ -602,10 +662,17 @@ namespace Urb
 
         private class ClassForm : Functional
         {
-            public ClassForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return DefineClass(args);
+            }
+        }
+
+        private class EndClassForm : Functional
+        {
+            public override string CompileToCSharp()
+            {
+                return "}";
             }
         }
 
@@ -662,7 +729,6 @@ namespace Urb
 
         private class SetForm : Functional
         {
-            public SetForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return SetVariable(args);
@@ -723,7 +789,6 @@ namespace Urb
         private class DefForm : Functional
         {
             public bool isStatic = false;
-            public DefForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return BuildMethod(args);
@@ -733,7 +798,6 @@ namespace Urb
 
         private class ReturnForm : Functional
         {
-            public ReturnForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return String.Format("return {0};", SourceEnforce(args, 0));
@@ -742,7 +806,6 @@ namespace Urb
 
         private class LabelForm : Functional
         {
-            public LabelForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return String.Format("{0}:", (Atom)args[0]);
@@ -751,7 +814,6 @@ namespace Urb
 
         private class VarForm : Functional
         {
-            public VarForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 var name = ((Atom)args[0]).ToString();
@@ -763,7 +825,6 @@ namespace Urb
 
         private class IfForm : Functional
         {
-            public IfForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 //_nestedLevel++;
@@ -778,7 +839,6 @@ namespace Urb
 
         private class OrForm : Functional
         {
-            public OrForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("||", args, isClosure: true);
@@ -787,7 +847,6 @@ namespace Urb
 
         private class AndForm : Functional
         {
-            public AndForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("&&", args);
@@ -798,7 +857,6 @@ namespace Urb
 
         private class AssignmentForm : Functional
         {
-            public AssignmentForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 var name = ((Atom)args[0]).ToString();
@@ -830,7 +888,6 @@ namespace Urb
 
         private class DivideOperatorForm : Functional
         {
-            public DivideOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("/", args);
@@ -839,7 +896,6 @@ namespace Urb
 
         private class MultiplyOperatorForm : Functional
         {
-            public MultiplyOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("*", args);
@@ -848,7 +904,6 @@ namespace Urb
 
         private class SubOperatorForm : Functional
         {
-            public SubOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("-", args);
@@ -857,7 +912,6 @@ namespace Urb
 
         private class AddOperatorForm : Functional
         {
-            public AddOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("+", args);
@@ -866,7 +920,6 @@ namespace Urb
 
         private class DivideSelfOperatorForm : Functional
         {
-            public DivideSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("/=", args, isOnlyTwo: true) + ";";
@@ -875,7 +928,6 @@ namespace Urb
 
         private class MultiplySelfOperatorForm : Functional
         {
-            public MultiplySelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("*=", args, isOnlyTwo: true) + ";";
@@ -884,7 +936,6 @@ namespace Urb
 
         private class SubSelfOperatorForm : Functional
         {
-            public SubSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("-=", args, isOnlyTwo: true) + ";";
@@ -893,7 +944,6 @@ namespace Urb
 
         private class AddSelfOperatorForm : Functional
         {
-            public AddSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("+=", args, isOnlyTwo: true) + ";";
@@ -902,7 +952,6 @@ namespace Urb
 
         private class LesserOperatorForm : Functional
         {
-            public LesserOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("<", args, isOnlyTwo: true);
@@ -911,7 +960,6 @@ namespace Urb
 
         private class BiggerOperatorForm : Functional
         {
-            public BiggerOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree(">", args, isOnlyTwo: true);
@@ -920,7 +968,6 @@ namespace Urb
 
         private class EqualOperatorForm : Functional
         {
-            public EqualOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("==", args, isOnlyTwo: true);
@@ -929,7 +976,6 @@ namespace Urb
 
         private class LesserEqualOperatorForm : Functional
         {
-            public LesserEqualOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree("<=", args, isOnlyTwo: true);
@@ -938,7 +984,6 @@ namespace Urb
 
         private class BiggerEqualOperatorForm : Functional
         {
-            public BiggerEqualOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return OperatorTree(">=", args, isOnlyTwo: true);
@@ -949,7 +994,6 @@ namespace Urb
 
         private class JumpDirectiveForm : Functional
         {
-            public JumpDirectiveForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return String.Format("goto {0};", (Atom)args[0]);
@@ -959,6 +1003,13 @@ namespace Urb
         #endregion
 
         #region Interpreter
+
+        // block stack.
+        public Stack<object> BlockStack = new Stack<object>();
+
+        // eval stack.
+        public Stack<object> EvaluationStack = new Stack<object>();
+
         public void EvalTree(List<Block> tree)
         {
             _print("\n" + _nTimes("_", 80) + "\n");
