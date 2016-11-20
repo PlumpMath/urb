@@ -6,19 +6,20 @@
 # when statement is evaluated post-fix order.
 #
 ###############################################
-(def (x:int -> square:int) ((x x *)))
+(def (x:int -> square:int) 
+	 (((x x *) return)))
 
 (12 square) # get eval anyway but don't store.
 
 #
-# @ - un-eval mode 
-# ! - runtime-eval mode
+# @ - uneval mode 
+# ! - eval mode
 #
-(12 13 @ square ! map) # goes on evaluation stack for the result.
+(12 13 square map) # goes on evaluation stack for the result.
 
-(1 2 3 @ + ! reduce) # => 6 on stack.
+(1 2 3 + reduce) # => 6 on stack.
 
-(System System.IO @ using ! map)
+(System System.IO using map)
 
 (Urb namespace)
 
@@ -28,11 +29,13 @@
 
 ("Static variable." StaticA :public :static set)
 
+((Stack<List<object>> new) listStack :public :static set)
+
 (def (_ -> Main:void) :static :public
 	(((ULisp new) uLisp var)))
 
 (def (_ -> ToString:string) :public :override
-	(" ToString is overrided."))
+	((" ToString is overrided." return)))
 
 (def (_ -> static_method:void) :static :private
 	((" This's static method." Console.WriteLine)))
@@ -61,4 +64,3 @@
 	  (0f -1.0f 0f set_position) if)))
 
 (endclass)
-

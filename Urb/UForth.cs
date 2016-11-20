@@ -259,23 +259,30 @@ namespace Urb
             {
                 switch (tokens[i].Value)
                 {
+                    //case "]":
                     case ")":
                         _close++;
                         _print(" )");
                         //_print(" end#{0} \n", _transformerIndex);
                         _transformerIndex = i + 1;
+                        //return new Block(acc.ToArray(), isList: tokens[i].Value == "]");
                         return new Block(acc.ToArray());
-
+                    //case "[":
                     case "(":
                         _open++;
                         _print("\n{0}#(", _expressions.Count);
                         var e = BuildExpression(tokens, i + 1);
+                        //e.isList = tokens[i].Value == "[";
                         if (_open == _close) return e;
                         // else just keep adding.. //
                         acc.Add(e);
                         i = _transformerIndex;
-
                         continue;
+
+                    case "!":
+                    case "@":
+                    // what to do here ? //
+
                     default:
                         /* Skip them all. */
                         if (tokens[i].Name == "newline" ||
@@ -399,6 +406,7 @@ namespace Urb
                     acc.Add(
                         _insertElement(element, block));
                 }
+                // An List ? //
             }
             return new Block(acc.ToArray());
         }
@@ -480,6 +488,7 @@ namespace Urb
 
         public class Block
         {
+            //public bool isList = false;
             public object[] elements;
             public object[] rest
             {
@@ -515,9 +524,10 @@ namespace Urb
                     return elements.Length > 0 ? elements[elements.Length - 1] : null;
                 }
             }
-            public Block(object[] _elements)
+            public Block(object[] _elements, bool isList = false)
             {
                 elements = _elements;
+                //this.isList = isList;
             }
 
             public override string ToString()
@@ -684,12 +694,6 @@ namespace Urb
             public StringBuilder type = new StringBuilder();
             public NewForm() : base()
             {
-                //for (int i = 0; i < args.Length; i++)
-                //{
-                //    if (args[i].GetType() == typeof(Atom))
-                //        // normal one we get all //
-                //        type.Append((Atom)args[i]);
-                //}
             }
             public override string CompileToCSharp()
             {
@@ -702,6 +706,10 @@ namespace Urb
                             ((Functional)args[i])
                                 .CompileToCSharp() +
                             (i + 1 < args.Length ? ", " : ""));
+                    else
+                    {
+                        type.Append((Atom)args[i]);
+                    }
                 }
                 return string.Format("new {0} ({1})", type.ToString(), constructorArgs.ToString());
             }
@@ -1030,11 +1038,9 @@ namespace Urb
 
         #region Interpreter
 
-        // block stack.
-        public Stack<object> BlockStack = new Stack<object>();
-
         // eval stack.
         public Stack<object> EvaluationStack = new Stack<object>();
+
 
         public void EvalTree(List<Block> tree)
         {
@@ -1045,25 +1051,54 @@ namespace Urb
                 _print(EvalBlock(block) + "\n");
             }
         }
+
+        private Block Reduce(Block block)
+        {
+            var acc = new List<object>();
+            var f = block.head;
+            switch (f.GetType().Name)
+            {
+                case "DefForm":
+                    var rest = block.rest;
+                    ((DefForm)f).args = rest;
+                    acc.Add(f);
+                    break;
+                default:
+                    //if (block.isList) acc.Add(block);
+                    //else
+                    {
+                        var flast = block.last;
+                        var revRest = block.revRest;
+                        ((Functional)flast).args = revRest;
+                        acc.Add(flast);
+                    }
+                    break;
+            }
+            return new Block(acc.ToArray());
+        }
+
         public string EvalBlock(Block block)
         {
-            var acc = new StringBuilder();
+            //var stack = new Stack<object>();
+            var view = new StringBuilder();
             var args = new StringBuilder();
+            //            var reduced = Reduce(block);
             foreach (var arg in block.elements)
             {
                 //_print("{0} ", arg.GetType().Name);
-                if (arg.GetType().IsSubclassOf(typeof(Block)))
+                if (arg.GetType() == (typeof(Block)))
                 {
+                    // tree traveling... //
                     args.Append(EvalBlock(arg as Block) + " ");
                 }
                 else
                 {
+                    // where we start eval ? //
                     args.Append(arg.ToString() + " ");
                 }
             }
-            acc.Append(String.Format("\n[ {0} {1} ]",
-                block.GetType().Name, args.ToString()));
-            return acc.ToString();
+            view.Append(String.Format("\n[ {0} ]", args.ToString()));
+            return view.ToString();
         }
         public void ReplTest(string source)
         {
