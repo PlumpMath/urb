@@ -20,7 +20,16 @@ namespace Urb
             // Compiling..
             //uLisp.Compile(source, "demo.dll");
             //uLisp.Compile(source, "demo.dll", false, true, true);
-            ufo.ReplTest(source);
+
+            //ufo.ReplTest(source);
+            ufo.ReplTest(@"
+                (def (x:int -> square:int) :public :static
+                    (
+                        ((x x *) return)
+                    )
+                )
+                (4 square)
+            ");
 
             // it's not ready yet.
             // uLisp.ReplSession();

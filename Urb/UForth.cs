@@ -346,6 +346,11 @@ namespace Urb
                     " {0} ({1})" + (isSingleStatement ? ";" : ""),
                     _functionLiteral, acc.ToString());
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private static string _nTimes(string ch, int time)
@@ -476,7 +481,7 @@ namespace Urb
 
             public Functional() { }
 
-            //public abstract object Eval();
+            public abstract object Eval(Stack<object> stack, Dictionary<string, object> env);
 
             public abstract string CompileToCSharp();
 
@@ -564,20 +569,20 @@ namespace Urb
         private static Dictionary<string, Type> _primitiveForms =
             new Dictionary<string, Type>()
             {
-            {"require",  typeof(RequireForm)},
-            {"import",  typeof(ImportForm)},
-            {"inherit", typeof(InheritForm)},
-            {"class", typeof(ClassForm)},
-            {"endclass", typeof(EndClassForm)},
-            {"new", typeof(NewForm)},
-            {"set", typeof(SetForm)},
+            //{"require",  typeof(RequireForm)},
+            //{"import",  typeof(ImportForm)},
+            //{"inherit", typeof(InheritForm)},
+            //{"class", typeof(ClassForm)},
+            //{"endclass", typeof(EndClassForm)},
+            //{"new", typeof(NewForm)},
+            //{"set", typeof(SetForm)},
 
             {"return", typeof(ReturnForm)},
-            {"label", typeof(LabelForm)},
-            {"var", typeof(VarForm)},
-            {"if", typeof(IfForm)},
-            {"and", typeof(AndForm)},
-            {"or", typeof(OrForm)},
+            //{"label", typeof(LabelForm)},
+            //{"var", typeof(VarForm)},
+            //{"if", typeof(IfForm)},
+            //{"and", typeof(AndForm)},
+            //{"or", typeof(OrForm)},
             {"=", typeof(AssignmentForm)},
             {"/=", typeof(DivideSelfOperatorForm)},
             {"*=", typeof(MultiplySelfOperatorForm)},
@@ -595,157 +600,157 @@ namespace Urb
             {"jump", typeof(JumpDirectiveForm)},
             };
 
-        private class RequireForm : Functional
-        {
-            public RequireForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                var ns = ((Atom)args[0]).ToString();
-                references.Add(ns);
-                return String.Format("using {0};", ns);
-            }
-        }
+        //private class RequireForm : Functional
+        //{
+        //    public RequireForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        var ns = ((Atom)args[0]).ToString();
+        //        references.Add(ns);
+        //        return String.Format("using {0};", ns);
+        //    }
+        //}
 
-        private class ImportForm : Functional
-        {
-            public ImportForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                return String.Format("using {0};", (Atom)args[0]);
-            }
-        }
+        //private class ImportForm : Functional
+        //{
+        //    public ImportForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        return String.Format("using {0};", (Atom)args[0]);
+        //    }
+        //}
 
-        private class InheritForm : Functional
-        {
-            public InheritForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                string _targets = "";
-                if (args.Length > 2)
-                {
-                    for (int i = 1; i < args.Length; i++)
-                    {
-                        _targets += ((Atom)args[i]).ToString();
-                        // Peak of next element existence. //
-                        if (i + 1 < args.Length) _targets += ", ";
-                    }
-                }
-                else {
-                    _targets = ((Atom)args[1]).ToString();
-                }
-                return String.Format("{0} : {1}", (Atom)args[0], _targets);
-            }
-        }
+        //private class InheritForm : Functional
+        //{
+        //    public InheritForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        string _targets = "";
+        //        if (args.Length > 2)
+        //        {
+        //            for (int i = 1; i < args.Length; i++)
+        //            {
+        //                _targets += ((Atom)args[i]).ToString();
+        //                // Peak of next element existence. //
+        //                if (i + 1 < args.Length) _targets += ", ";
+        //            }
+        //        }
+        //        else {
+        //            _targets = ((Atom)args[1]).ToString();
+        //        }
+        //        return String.Format("{0} : {1}", (Atom)args[0], _targets);
+        //    }
+        //}
 
-        private static string DefineClass(object[] args, bool isStatic = false)
-        {
-            /*************************
-                 * 
-                 * Class Form:
-                 * 
-                 * 1. policy.
-                 * 2. name/inherit.
-                 * 3. body.
-                 * 
-                 *************************/
-            var name = "";
-            var policy = "";
-            switch (args.Length)
-            {
-                case 3: // policy + name. //
-                    policy = ((Atom)args[0]).ToString();
-                    name = SourceEnforce(args, 1);
-                    break;
-                case 2: // ignore policy. //
-                    name = SourceEnforce(args, 0);
-                    break;
-                default: throw new Exception("Malform Class");
-            }
-            var _static = isStatic ? "static" : "";
-            var title = args.Length > 2 ?
-                            String.Format("{0} {1} class {2}", policy, _static, name) :
-                            String.Format("{0} class {1}", _static, name);
-            var body = (Functional)args[args.Length - 1];
-            /* adding newline before new class */
-            return String.Format("\n{0}\n{1}", title, body.CompileToCSharp());
+        //private static string DefineClass(object[] args, bool isStatic = false)
+        //{
+        //    /*************************
+        //         * 
+        //         * Class Form:
+        //         * 
+        //         * 1. policy.
+        //         * 2. name/inherit.
+        //         * 3. body.
+        //         * 
+        //         *************************/
+        //    var name = "";
+        //    var policy = "";
+        //    switch (args.Length)
+        //    {
+        //        case 3: // policy + name. //
+        //            policy = ((Atom)args[0]).ToString();
+        //            name = SourceEnforce(args, 1);
+        //            break;
+        //        case 2: // ignore policy. //
+        //            name = SourceEnforce(args, 0);
+        //            break;
+        //        default: throw new Exception("Malform Class");
+        //    }
+        //    var _static = isStatic ? "static" : "";
+        //    var title = args.Length > 2 ?
+        //                    String.Format("{0} {1} class {2}", policy, _static, name) :
+        //                    String.Format("{0} class {1}", _static, name);
+        //    var body = (Functional)args[args.Length - 1];
+        //    /* adding newline before new class */
+        //    return String.Format("\n{0}\n{1}", title, body.CompileToCSharp());
 
-        }
+        //}
 
-        private class ClassForm : Functional
-        {
-            public ClassForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                return DefineClass(args);
-            }
-        }
+        //private class ClassForm : Functional
+        //{
+        //    public ClassForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        return DefineClass(args);
+        //    }
+        //}
 
-        private class EndClassForm : Functional
-        {
-            public EndClassForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                return "}";
-            }
-        }
+        //private class EndClassForm : Functional
+        //{
+        //    public EndClassForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        return "}";
+        //    }
+        //}
 
-        private class NewForm : Functional
-        {
-            public StringBuilder type = new StringBuilder();
-            public NewForm() : base()
-            {
-            }
-            public override string CompileToCSharp()
-            {
-                var constructorArgs = new StringBuilder();
-                for (int i = 0; i < args.Length; i++)
-                {
-                    if (args[i].GetType() != typeof(Atom))
-                        // append all constructor args //
-                        constructorArgs.Append(
-                            ((Functional)args[i])
-                                .CompileToCSharp() +
-                            (i + 1 < args.Length ? ", " : ""));
-                    else
-                    {
-                        type.Append((Atom)args[i]);
-                    }
-                }
-                return string.Format("new {0} ({1})", type.ToString(), constructorArgs.ToString());
-            }
-        }
+        //private class NewForm : Functional
+        //{
+        //    public StringBuilder type = new StringBuilder();
+        //    public NewForm() : base()
+        //    {
+        //    }
+        //    public override string CompileToCSharp()
+        //    {
+        //        var constructorArgs = new StringBuilder();
+        //        for (int i = 0; i < args.Length; i++)
+        //        {
+        //            if (args[i].GetType() != typeof(Atom))
+        //                // append all constructor args //
+        //                constructorArgs.Append(
+        //                    ((Functional)args[i])
+        //                        .CompileToCSharp() +
+        //                    (i + 1 < args.Length ? ", " : ""));
+        //            else
+        //            {
+        //                type.Append((Atom)args[i]);
+        //            }
+        //        }
+        //        return string.Format("new {0} ({1})", type.ToString(), constructorArgs.ToString());
+        //    }
+        //}
 
-        private static string SetVariable(object[] args, bool isStatic = false)
-        {
-            // 3 args: policy, name & binding.
-            var policy = args.Length == 3 ? ((Atom)args[0]).ToString() : "";
-            var attribute = isStatic ? "static" : "";
-            var type = "";
-            var name = ((Atom)args[args.Length - 2]).ToString();
-            var binding = "";
-            if (args[args.Length - 1].GetType() == typeof(NewForm))
-            {
-                type = ((NewForm)args[args.Length - 1]).type.ToString();
-                binding = ((NewForm)args[args.Length - 1]).CompileToCSharp();
-            }
-            else // just value //
-            {
-                type = ((Atom)args[args.Length - 1]).value.GetType().Name;
-                binding = ((Atom)args[args.Length - 1]).ToString();
-            }
-            return String.Format("{0} {1} {2} {3} = {4};",
-                policy, attribute, type, name, binding);
+        //private static string SetVariable(object[] args, bool isStatic = false)
+        //{
+        //    // 3 args: policy, name & binding.
+        //    var policy = args.Length == 3 ? ((Atom)args[0]).ToString() : "";
+        //    var attribute = isStatic ? "static" : "";
+        //    var type = "";
+        //    var name = ((Atom)args[args.Length - 2]).ToString();
+        //    var binding = "";
+        //    if (args[args.Length - 1].GetType() == typeof(NewForm))
+        //    {
+        //        type = ((NewForm)args[args.Length - 1]).type.ToString();
+        //        binding = ((NewForm)args[args.Length - 1]).CompileToCSharp();
+        //    }
+        //    else // just value //
+        //    {
+        //        type = ((Atom)args[args.Length - 1]).value.GetType().Name;
+        //        binding = ((Atom)args[args.Length - 1]).ToString();
+        //    }
+        //    return String.Format("{0} {1} {2} {3} = {4};",
+        //        policy, attribute, type, name, binding);
 
-        }
+        //}
 
-        private class SetForm : Functional
-        {
-            public SetForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                return SetVariable(args);
-            }
-        }
+        //private class SetForm : Functional
+        //{
+        //    public SetForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        return SetVariable(args);
+        //    }
+        //}
 
 
         private static string[] Pair(Atom atom)
@@ -800,14 +805,119 @@ namespace Urb
 
         private class DefForm : Functional
         {
+            private List<string> _policies = new List<string>()
+            {
+                "private", "protected", "public"
+            };
+            private List<string> _attributes = new List<string>()
+            {
+                "static", "override"
+            };
+            private List<string> _attributes2 = new List<string>()
+            {
+                "partial", "readonly"
+            };
+            public Dictionary<string, string> parameters = new Dictionary<string, string>();
+            public string attribute1 = string.Empty;
+            public string attribute2 = string.Empty;
+            public string returnType = String.Empty;
+            public string name = String.Empty;
+            public string policy = String.Empty;
+            public Block body;
             public DefForm() : base() { }
             public bool isStatic = false;
             public override string CompileToCSharp()
             {
-                return BuildMethod(args);
+                var allParams = string.Empty;
+                foreach (var pair in parameters)
+                {
+                    allParams += string.Format(" {0} {1},", pair.Value, pair.Key);
+                }
+                allParams = allParams.Substring(0, allParams.Length - 1);
+                var title = string.Format("{0} {1} {2} {3} {4} ({5})",
+                    policy, attribute1, attribute2, returnType, name, allParams);
+
+                // Body ?
+                foreach (var element in body.elements)
+                {
+
+                }
+                return null;
+            }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                // here we go :D //
+                /***************************************
+                 * 
+                 * :: DEF ::
+                 * 
+                 * 1. ( arg:type -> name:return_type )
+                 * 2. :attributes
+                 * N. &body
+                 * 
+                 */
+                args = stack.ToArray();
+                body = (Block)args[0];
+                if (args.Length > 2)
+                {
+                    for (int i = 1; i < args.Length - 1; i++)
+                    {
+                        // collect policy //
+                        if (_policies.Contains(args[i].ToString()))
+                            policy = args[i].ToString();
+
+                        // collect attribute //
+                        if (_attributes.Contains(args[i].ToString()))
+                            attribute1 = args[i].ToString();
+
+                        // collect attribute 2//
+                        if (_attributes2.Contains(args[i].ToString()))
+                            attribute2 = args[i].ToString();
+                    }
+                }
+                var signature = GetPair((Block)args[args.Length - 1]);
+                parameters = (Dictionary<string, string>)signature[0];
+                var functionSign = (string[])signature[1];
+                name = functionSign[0];
+                returnType = functionSign[1];
+
+                env.Add(name, this);
+
+                return this;
+            }
+
+            public override string ToString()
+            {
+                return string.Format("\n* defined {0} .", name);
             }
         }
 
+        private static object[] GetPair(Block block)
+        {
+            var next = false;
+            var A = new Dictionary<string, string>();
+            var B = new string[2];
+            foreach (var element in block.elements)
+            {
+                var e = (Atom)element;
+                if (e.type == "forward")
+                {
+                    next = true;
+                    continue;
+                }
+                var pair = e.value.ToString().Split(new char[] { ':' });
+                if (!next)
+                {
+                    A.Add(pair[0], pair[1]);
+                }
+                else {
+                    B = new string[] { pair[0], pair[1] };
+                }
+
+            }
+            return new object[] { A, B };
+        }
 
         private class ReturnForm : Functional
         {
@@ -816,61 +926,66 @@ namespace Urb
             {
                 return String.Format("return {0};", SourceEnforce(args, 0));
             }
-        }
 
-        private class LabelForm : Functional
-        {
-            public LabelForm() : base() { }
-            public override string CompileToCSharp()
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
             {
-                return String.Format("{0}:", (Atom)args[0]);
+                throw new NotImplementedException();
             }
         }
 
-        private class VarForm : Functional
-        {
-            public VarForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                var name = ((Atom)args[0]).ToString();
-                var value = args[1].GetType() == typeof(Atom) ?
-                    ((Atom)args[1]).value : SourceEnforce(args, 1);
-                return String.Format("var {0} = {1};", name, value);
-            }
-        }
+        //private class LabelForm : Functional
+        //{
+        //    public LabelForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        return String.Format("{0}:", (Atom)args[0]);
+        //    }
+        //}
 
-        private class IfForm : Functional
-        {
-            public IfForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                //_nestedLevel++;
-                if (args[0].GetType() == typeof(LiteralForm))
-                    ((LiteralForm)args[0]).isSingleStatement = false;
+        //private class VarForm : Functional
+        //{
+        //    public VarForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        var name = ((Atom)args[0]).ToString();
+        //        var value = args[1].GetType() == typeof(Atom) ?
+        //            ((Atom)args[1]).value : SourceEnforce(args, 1);
+        //        return String.Format("var {0} = {1};", name, value);
+        //    }
+        //}
 
-                var condition = SourceEnforce(args, 0);
-                var body = SourceEnforce(args, 1);
-                return String.Format("if ({0}) {{\n{1}\n}}", condition, body);
-            }
-        }
+        //private class IfForm : Functional
+        //{
+        //    public IfForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        //_nestedLevel++;
+        //        if (args[0].GetType() == typeof(LiteralForm))
+        //            ((LiteralForm)args[0]).isSingleStatement = false;
 
-        private class OrForm : Functional
-        {
-            public OrForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                return OperatorTree("||", args, isClosure: true);
-            }
-        }
+        //        var condition = SourceEnforce(args, 0);
+        //        var body = SourceEnforce(args, 1);
+        //        return String.Format("if ({0}) {{\n{1}\n}}", condition, body);
+        //    }
+        //}
 
-        private class AndForm : Functional
-        {
-            public AndForm() : base() { }
-            public override string CompileToCSharp()
-            {
-                return OperatorTree("&&", args);
-            }
-        }
+        //private class OrForm : Functional
+        //{
+        //    public OrForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        return OperatorTree("||", args, isClosure: true);
+        //    }
+        //}
+
+        //private class AndForm : Functional
+        //{
+        //    public AndForm() : base() { }
+        //    public override string CompileToCSharp()
+        //    {
+        //        return OperatorTree("&&", args);
+        //    }
+        //}
 
         #region Operators
 
@@ -883,6 +998,11 @@ namespace Urb
                 var value = args[1].GetType() == typeof(Atom) ?
                     ((Atom)args[1]).value : SourceEnforce(args, 1);
                 return String.Format("{0} = {1};", name, value);
+            }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -913,6 +1033,11 @@ namespace Urb
             {
                 return OperatorTree("/", args);
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class MultiplyOperatorForm : Functional
@@ -921,6 +1046,11 @@ namespace Urb
             public override string CompileToCSharp()
             {
                 return OperatorTree("*", args);
+            }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -931,6 +1061,11 @@ namespace Urb
             {
                 return OperatorTree("-", args);
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class AddOperatorForm : Functional
@@ -939,6 +1074,11 @@ namespace Urb
             public override string CompileToCSharp()
             {
                 return OperatorTree("+", args);
+            }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -949,6 +1089,11 @@ namespace Urb
             {
                 return OperatorTree("/=", args, isOnlyTwo: true) + ";";
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class MultiplySelfOperatorForm : Functional
@@ -957,6 +1102,11 @@ namespace Urb
             public override string CompileToCSharp()
             {
                 return OperatorTree("*=", args, isOnlyTwo: true) + ";";
+            }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -967,6 +1117,11 @@ namespace Urb
             {
                 return OperatorTree("-=", args, isOnlyTwo: true) + ";";
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class AddSelfOperatorForm : Functional
@@ -975,6 +1130,11 @@ namespace Urb
             public override string CompileToCSharp()
             {
                 return OperatorTree("+=", args, isOnlyTwo: true) + ";";
+            }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -985,6 +1145,11 @@ namespace Urb
             {
                 return OperatorTree("<", args, isOnlyTwo: true);
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class BiggerOperatorForm : Functional
@@ -993,6 +1158,11 @@ namespace Urb
             public override string CompileToCSharp()
             {
                 return OperatorTree(">", args, isOnlyTwo: true);
+            }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -1003,6 +1173,11 @@ namespace Urb
             {
                 return OperatorTree("==", args, isOnlyTwo: true);
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class LesserEqualOperatorForm : Functional
@@ -1012,6 +1187,11 @@ namespace Urb
             {
                 return OperatorTree("<=", args, isOnlyTwo: true);
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class BiggerEqualOperatorForm : Functional
@@ -1020,6 +1200,11 @@ namespace Urb
             public override string CompileToCSharp()
             {
                 return OperatorTree(">=", args, isOnlyTwo: true);
+            }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -1032,18 +1217,30 @@ namespace Urb
             {
                 return String.Format("goto {0};", (Atom)args[0]);
             }
+
+            public override object Eval(Stack<object> stack, Dictionary<string, object> env)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         #endregion
 
         #region Interpreter
 
-        // eval stack.
+        // eval stack.  //
         public Stack<object> EvaluationStack = new Stack<object>();
-
+        // environment. //
+        public Dictionary<string, object> Environment = new Dictionary<string, object>();
 
         public void EvalTree(List<Block> tree)
         {
+            _print("\n" + _nTimes("_", 80) + "\n");
+            _print("\n* Viewing Tree...*\n");
+            foreach (var block in tree)
+            {
+                _print(BlockView(block) + "\n");
+            }
             _print("\n" + _nTimes("_", 80) + "\n");
             _print("\n* Evaluating Tree...*\n");
             foreach (var block in tree)
@@ -1052,34 +1249,8 @@ namespace Urb
             }
         }
 
-        private Block Reduce(Block block)
+        public string BlockView(Block block)
         {
-            var acc = new List<object>();
-            var f = block.head;
-            switch (f.GetType().Name)
-            {
-                case "DefForm":
-                    var rest = block.rest;
-                    ((DefForm)f).args = rest;
-                    acc.Add(f);
-                    break;
-                default:
-                    //if (block.isList) acc.Add(block);
-                    //else
-                    {
-                        var flast = block.last;
-                        var revRest = block.revRest;
-                        ((Functional)flast).args = revRest;
-                        acc.Add(flast);
-                    }
-                    break;
-            }
-            return new Block(acc.ToArray());
-        }
-
-        public string EvalBlock(Block block)
-        {
-            //var stack = new Stack<object>();
             var view = new StringBuilder();
             var args = new StringBuilder();
             //            var reduced = Reduce(block);
@@ -1089,7 +1260,7 @@ namespace Urb
                 if (arg.GetType() == (typeof(Block)))
                 {
                     // tree traveling... //
-                    args.Append(EvalBlock(arg as Block) + " ");
+                    args.Append(BlockView(arg as Block) + " ");
                 }
                 else
                 {
@@ -1099,6 +1270,32 @@ namespace Urb
             }
             view.Append(String.Format("\n[ {0} ]", args.ToString()));
             return view.ToString();
+        }
+
+        public bool IsSpecialForm(object element)
+        {
+            // we need a list of special form ? //
+            return element.GetType().Name == "DefForm";
+        }
+
+        public string EvalBlock(Block block)
+        {
+            // what we gonna do now ? //
+            if (IsSpecialForm(block.head))
+            {
+                var f = (DefForm)block.head;
+                var stack = new Stack<object>();
+                foreach (var arg in block.rest) stack.Push(arg);
+                var result = f.Eval(stack, Environment);
+                return result.ToString();
+            }
+            else
+            {
+                // just normal form. //
+                _print("* normal_form: {0}", block);
+
+            }
+            return null;
         }
         public void ReplTest(string source)
         {
@@ -1148,7 +1345,6 @@ namespace Urb
                 _print("\n" + _nTimes("_", 80) + "\n\n");
             }
         }
-
 
         #endregion
 
