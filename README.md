@@ -1,21 +1,20 @@
-# UFO
-Stay for uForth or micro-forth. 
+# ULISP
+Stay for micro lisp. 
 A minimal Unity-compatible language inpired by lisp/ruby/forth.
 
 ####1. Intend
- - a thin-layer of code transformation between csharp, forth and common lisp, with mix of ruby warmmy code style. 
+ - a thin-layer of code transformation between csharp and common lisp, with mix of ruby warmmy code style. 
  
 ####2. Core Features
  - lisp macros.
  - ruby clean syntax style.
- - forth stack and post-fix order in statement.
  - remain csharp familiar keywords.
  - maximum .net Framework compatibility.
  - Unity editor intergration.
 
 ####3. Mechanism
    
-   - Urb simply transform your language into equal csharp syntax rules, yes, I'm doing the code generation way.
+   - Urb simply transform your language into equal csharp syntax rules, yes, I'm doing the code generation way to experiment the best sample code format. If things goes well, then I will replace with CodeDom or IL Emit (if necessary).
 
 The work flow:
 
@@ -24,68 +23,56 @@ The work flow:
 ####4. Examples
 
 	###############################################
-	# :: ufo - a stack-based lisp language ::
-	#
-	# special is like dig a hole to wait for arguments
-	# then execute when it has enough.
-	# special form can goes for special hole
-	# when statement is evaluated post-fix order.
-	#
+	#					      #
+	# :: ulisp - a minimal lisp language ::	      #
+	#					      #
 	###############################################
-	(def (x:int -> square:int) ((x x *)))
+	(class :public (inherit Player MonoBehaviour)
+		(progn
+			(set :public Name "deulamco")
 
-	(12 square) # get eval anyway but don't store.
+			(set dict (new Dictionary<String,String>)) 
 
-	#
-	# @ - un-eval mode 
-	# ! - eval mode
-	#
-	(12 13 @ square ! map) # goes on evaluation stack for the result.
+			(setstatic :public staticA "I'm static variable.")
 
-	(1 2 3 @ + ! reduce) # => 6 on stack.
+			(def (Start -> _)
+			     (void  -> _)
+			     (progn
+				(dict.Clear)
+				(= staticA "modified.")))
 
-	(System System.IO @ using ! map)
+			(def (ToString -> _)
+			     (string   -> _) 
+			     (:public :override)
+			     (progn
+			         (return "ToString is Overrided.")))
 
-	(namespace Urb)
+			(def ( test -> _)
+			     ( void -> _)
+			     (:private)
+				 (progn 
+					(label Condition)
+					(var i 0)
+					(+= i 1)
+					(Console.WriteLine i)
+					(if (and (< i 10) (< -1 i) 
+						 (or true false))
+					    (jump Condition))
+					(var result i)
+					(Console.WriteLine "Good bye {0} !" result)))
 
-	(MainClass :partial :public :static class)
 
-	("deulamco" Name :public set)
-
-	("Static variable." StaticA :public :static set)
-
-	(def (_ -> Main:void) :static :public
-		(((ULisp new) uLisp var)))
-
-	(def (_ -> ToString:string) :public :override
-		(" ToString is overrided."))
-
-	(def (_ -> static_method:void) :static :private
-		((" This's static method." Console.WriteLine)))
-
-	(def (_ -> test:void) :private
-		((Condition label)
-		 (0 i var)
-		 (1 i +=)
-		 (i Console.WriteLine)
-		 (((-1 i <) (10 i <)
-		  ((true false) or) and)
-		  (Condition jump) if)
-		 (i result var)
-		 (result Console.WriteLine)))
-
-	(def (x:float y:float z:float -> set_position:void) :public
-		(((
-		  (transform.position.z z +)
-		  (transform.position.y y +)
-		  (transform.position.x x +)
-		  Vector3 new) transform.position =)))
-
-	(def (_ -> Update:void)
-		(((KeyCode.DownArrow Input.GetKey)
-		  (0f -1.0f 0f set_position) if)))
-
-	(endclass)
+			(def (set_position -> x y z)
+				 (void 	   -> float float float) 
+				 (:public)
+				 (progn 
+				    (= transform.position 
+				    (new Vector3 
+				    (+ transform.position.x x)
+				    (+ transform.position.y y)
+				    (+ transform.position.z z)))))
+		)
+	)
 
 I was experiment with all language samples transformation that can be translated into the same C# source. Just to find a way to express my thought style the most into programming. So in the end, I borrow from them all the characteristic I like the most.
 
