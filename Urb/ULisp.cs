@@ -157,6 +157,12 @@ namespace Urb
         }
 
 
+        private static void _print(string line)
+        {
+            Console.WriteLine(line);
+        }
+
+
         private static void _print(string line, params object[] args)
         {
             Console.Write(line, args);
