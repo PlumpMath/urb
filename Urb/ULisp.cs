@@ -586,7 +586,7 @@ namespace Urb
             {"import",  typeof(ImportForm)},
             {"inherit", typeof(InheritForm)},
             {"class", typeof(ClassForm)},
-            {"progn", typeof(PrognForm)},
+            {"begin", typeof(BeginForm)},
             {"quote", typeof(QuoteForm)},
             {"new", typeof(NewForm)},
             {"set", typeof(SetForm)},
@@ -710,13 +710,13 @@ namespace Urb
             }
         }
 
-        private static int _prognLevel = 0;
-        private class PrognForm : Functional
+        private static int _beginLevel = 0;
+        private class BeginForm : Functional
         {
-            public PrognForm(object[] args) : base(args) { }
+            public BeginForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                _prognLevel++;
+                _beginLevel++;
                 var builder = new StringBuilder();
                 foreach (Functional function in args)
                 {
@@ -724,7 +724,7 @@ namespace Urb
                     if (function != null)
                         builder.AppendLine(function.CompileToCSharp());
                 }
-                _prognLevel--;
+                _beginLevel--;
                 return String.Format("{{\n{0}}}", builder.ToString());
             }
         }
@@ -1299,7 +1299,7 @@ namespace Urb
             _isLiteralForm = false;
             _nestedLevel = 0;
             _open = _close = 0;
-            _prognLevel = 0;
+            _beginLevel = 0;
             _token_array = null;
             _token_index = -1;
             _transformerIndex = -1;

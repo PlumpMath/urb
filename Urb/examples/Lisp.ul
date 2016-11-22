@@ -10,26 +10,26 @@
 (import System.Collections.Generic)
 
 (class :public StaticLibrary
-	(progn
+	(begin
 	   	(def (DemoBrace -> brace_test generic_test)
-	   		 (void	    -> object[] Dictionary<string,object>)
-	   		 (:public :static )
-	   		 (progn)
+		   		 (void	    -> object[] Dictionary<string,object>)
+		   		 (:public :static )
+		   		 (begin)
 	   	)
 	)
 )
 
 (class :public GenericClass<T> 
-	(progn
+	(begin
 		###############
 		#			  #
 		# constructor #
 		# 			  #
 		###############
 		(def (GenericClass -> type) 
-			 (ctor -> T)
-			 (:public)
-			 (progn))
+				 (ctor -> T)
+				 (:public)
+				 (begin))
 	)
 )
 
@@ -42,55 +42,44 @@
 #												 #
 ##################################################
 (class :public (inherit Player MonoBehaviour)
-	(progn
+	(begin
 		(set :public Name "deulamco")
-
 		(set dict (new Dictionary<String,String>)) 
 
-		(setstatic :public staticA "I'm static variable.")
-
 		(def (Start -> _)
-			 (void  -> _)
-			 (progn
-			  	(dict.Clear)
-			  	(= staticA "modified.")))
+			 	 (void  -> _)
+			 	 (begin
+			   		(dict.Clear)))
 
 		(def (ToString -> _)
-			 (string   -> _) 
-			 (:public :override)
-			 (progn
-			 	(return "ToString is Overrided.")))
+				 (string   -> _) 
+				 (:public :override)
+				 (begin
+				 		(return "ToString is Overrided.")))
 
-		(def ( test -> _)
-			 ( void -> _)
-			 (:private)
-			 (progn 
-			  	(label Condition)
-				(var i 0)
-				(+= i 1)
-				(Console.WriteLine i)
-				(if (and (< i 10) (< -1 i) 
-						 (or true false))
-					(jump Condition))
-				(var result i)
-				(Console.WriteLine "Good bye {0} !" result)))
+		(def (test -> _)
+			   (void -> _)
+				 (:private)
+				 (begin 
+				  	(label Condition)
+						(var i 0)
+						(+= i 1)
+						(Console.WriteLine i)
+						(if (and (< i 10) (< -1 i) 
+								 (or true false))
+								(jump Condition))
+						(var result i)
+						(Console.WriteLine "Good bye {0} !" result)))
 
 
 		(def (set_position -> x y z)
-			 (void 		   -> float float float) 
-			 (:public)
-		  	 (progn 
-			    ####################################
-			    # 								   #
-			    # '=' assignment is different from #
-			    # 'set' because set work outside   # 
-			    # method, when '=' is inside.	   #
-			    #								   #
-			    ####################################
-			  	(= transform.position 
-			    (new Vector3 
-			    (+ transform.position.x x)
-			    (+ transform.position.y y)
-		 	    (+ transform.position.z z)))))
+				 (void  		   -> float float float) 
+				 (:public)
+			   (begin 
+			   	 (= transform.position 
+				   (new Vector3 
+					    (+ transform.position.x x)
+					    (+ transform.position.y y)
+			 		    (+ transform.position.z z)))))
 	)
 )
