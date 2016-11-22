@@ -23,12 +23,13 @@ namespace Urb
 
             //ufo.ReplTest(source);
             ufo.ReplTest(@"
-                (def (x:int -> square:int) :public :static
-                    (
-                        ((x x *) return)
-                    )
-                )
-                (4 square)
+                (def (square -> x) 
+                     (int    -> int)
+                     (:public :static)
+                     (progn
+                        (return (* x x))))
+
+                (square 4)
             ");
 
             // it's not ready yet.

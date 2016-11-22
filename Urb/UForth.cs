@@ -163,6 +163,11 @@ namespace Urb
         }
 
 
+        private static void _print(string line)
+        {
+            Console.WriteLine(line);
+        }
+
         private static void _print(string line, params object[] args)
         {
             Console.Write(line, args);
@@ -349,6 +354,7 @@ namespace Urb
 
             public override object Eval(Stack<object> stack, Dictionary<string, object> env)
             {
+                // to literal form, eval mean invoking functions //
                 throw new NotImplementedException();
             }
         }
@@ -834,15 +840,19 @@ namespace Urb
                     allParams += string.Format(" {0} {1},", pair.Value, pair.Key);
                 }
                 allParams = allParams.Substring(0, allParams.Length - 1);
-                var title = string.Format("{0} {1} {2} {3} {4} ({5})",
+                var title = string.Format("{0} {1} {2} {3} {4} ({5}) ",
                     policy, attribute1, attribute2, returnType, name, allParams);
 
+                //_print(title);
+                var body_source = String.Empty;
                 // Body ?
-                foreach (var element in body.elements)
-                {
-
-                }
-                return null;
+                body_source = _compileBlock(body);
+                //_print(body_source);
+                // Final.
+                var result = string.Format("{0} {{\n{1}\n}}", title, body_source);
+                //_print(result);
+                //_print(result);
+                return result;
             }
 
             public override object Eval(Stack<object> stack, Dictionary<string, object> env)
@@ -883,7 +893,7 @@ namespace Urb
                 returnType = functionSign[1];
 
                 env.Add(name, this);
-
+                _print(this.CompileToCSharp());
                 return this;
             }
 
@@ -891,6 +901,42 @@ namespace Urb
             {
                 return string.Format("\n* defined {0} .", name);
             }
+        }
+
+        private static string _compileBlock(Block body)
+        {
+            var _stack = new Stack<object>();
+            var body_source = new StringBuilder();
+            foreach (var element in body.elements)
+            {
+                // each block //
+                switch (element.GetType().Name)
+                {
+                    case "Block":
+                        var b = _compileBlock((Block)element);
+                        _stack.Push(b);
+                        break;
+
+                    default:
+                        // mean other than block //
+                        if (element.GetType().IsSubclassOf(typeof(Functional)))
+                        {
+
+                            var e = (Functional)element;
+                            e.args = _stack.ToArray();
+                            body_source.Append(e.CompileToCSharp());
+                        }
+                        else
+                        {
+                            _stack.Push(element);
+                        }
+                        break;
+                }
+            }
+            if (_stack.Count > 0 && body_source.Length == 0)
+                body_source.Append(_stack.Pop());
+
+            return body_source.ToString();
         }
 
         private static object[] GetPair(Block block)
@@ -924,7 +970,7 @@ namespace Urb
             public ReturnForm() : base() { }
             public override string CompileToCSharp()
             {
-                return String.Format("return {0};", SourceEnforce(args, 0));
+                return String.Format("return {0};", args[0]);
             }
 
             public override object Eval(Stack<object> stack, Dictionary<string, object> env)
@@ -1284,19 +1330,36 @@ namespace Urb
             if (IsSpecialForm(block.head))
             {
                 var f = (DefForm)block.head;
-                var stack = new Stack<object>();
-                foreach (var arg in block.rest) stack.Push(arg);
-                var result = f.Eval(stack, Environment);
+                var result = f.Eval(
+                    _toStack(block.rest), Environment);
                 return result.ToString();
             }
             else
             {
                 // just normal form. //
                 _print("* normal_form: {0}", block);
+                // can be evaluated inside repl env //
+                var l = (Atom)block.last;
+                var literal = new LiteralForm();
+                literal.Init(l);
+                literal.args = _toStack(block.revRest).ToArray();
+                var result = literal.CompileToCSharp();
+                //var result = literal.Eval(
+                //    _toStack(block.revRest), Environment);
+
+                return result.ToString();
 
             }
             return null;
         }
+
+        private static Stack<object> _toStack(object[] elements)
+        {
+            var stack = new Stack<object>();
+            foreach (var arg in elements) stack.Push(arg);
+            return stack;
+        }
+
         public void ReplTest(string source)
         {
             EvalTree(BuildFunctionalTree(source));
