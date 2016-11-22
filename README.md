@@ -26,20 +26,6 @@ The work flow:
            (:public)
            (progn
                 (set :public Name "deulamco")
-                (set dict (new Dictionary<String,String>)) 
-
-                (def (Start -> _)
-                     (void  -> _)
-                     (progn
-                    (dict.Clear)
-                    (= staticA "modified.")))
-
-                (def (ToString -> _)
-                     (string   -> _) 
-                     (:public :override)
-                     (progn
-                         (return "ToString is Overrided.")))
-
                 (def ( test -> _)
                      ( void -> _)
                      (:private)
@@ -53,8 +39,6 @@ The work flow:
                             (jump Condition))
                         (var result i)
                         (Console.WriteLine "Good bye {0} !" result)))
-
-
                 (def (set_position -> x y z)
                      (void 	   -> float float float) 
                      (:public)
