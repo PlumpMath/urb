@@ -24,30 +24,32 @@ The work flow:
 
 	(class (inherit Player MonoBehaviour)
            (:public)
-           (progn
+           (begin
                 (set :public Name "deulamco")
+                
                 (def ( test -> _)
                      ( void -> _)
                      (:private)
-                     (progn 
+                     (begin 
                         (label Condition)
                         (var i 0)
                         (+= i 1)
                         (Console.WriteLine i)
                         (if (and (< i 10) (< -1 i) 
-                             (or true false))
+                                 (or true false))
                             (jump Condition))
                         (var result i)
                         (Console.WriteLine "Good bye {0} !" result)))
+                        
                 (def (set_position -> x y z)
-                     (void 	   -> float float float) 
+                     (void 	       -> float float float) 
                      (:public)
-                     (progn 
+                     (begin 
                         (= transform.position 
-                        (new Vector3 
-                        (+ transform.position.x x)
-                        (+ transform.position.y y)
-                        (+ transform.position.z z)))))))
+                            (new Vector3 
+                                (+ transform.position.x x)
+                                (+ transform.position.y y)
+                                (+ transform.position.z z)))))))
 
 I was experiment with all language samples transformation that can be translated into the same C# source. Just to find a way to express my thought style the most into programming. So in the end, I borrow from them all the characteristic I like the most.
 
