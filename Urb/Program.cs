@@ -17,23 +17,23 @@ namespace Urb
             var source = File.ReadAllText("../../examples/Lisp.ul");
             //var source = File.ReadAllText("../../examples/Forth.ufo");
 
-            uLisp.ReplTest(source);
+            //uLisp.ReplTest(source);
             //ufo.ReplTest(source);
-            //uLisp.ReplTest(@"
-            //    (def (square -> x) 
-            //         (int    -> int)
-            //         (:public :static)
-            //         (progn
-            //            (return (* x x))))
+            uLisp.ReplTest(@"
+                (def (square -> x) 
+                     (int    -> int)
+                     (:public :static)
+                     (progn
+                        (return (* x x))))
 
-            //    (square 4)
-            //");
+                (square 4)
+            ");
 
             // it's not ready yet.
             // uLisp.ReplSession();
 
             // Compiling..
-            uLisp = new ULisp();
+            //uLisp = new ULisp();
             uLisp.Compile(source, "demo.dll", isDebugTransform: true);
             //uLisp.Compile(source, "demo.dll", false, true, true);
 

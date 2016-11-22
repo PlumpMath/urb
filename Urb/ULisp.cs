@@ -51,6 +51,10 @@ namespace Urb
             @"(?<newline>\n\t|\n|\r|\r\n)|" +
             // \t
             @"(?<tab>\t)|" +
+            // quote
+            @"(?<quote>\@)|" +
+            // forward
+            @"(?<forward>\-\>)|" +
             // comma, () and []
             @"(?<separator>,|\(|\)|\[|\])|" +
             // string " "
@@ -82,7 +86,7 @@ namespace Urb
             @"(?<label>[a-zA-Z0-9$_]+\:)|" +
             // Literal   [a-zA-Z0-9\\_\<\>\[\]\-$_.]
             // without [] in its literal rule.
-            @"(?<literal>[a-zA-Z0-9\\_\<\>\-$_.]+)|" +
+            @"(?<literal>[a-zA-Z0-9\\_\<\>\[\],\-$_.]+)|" +
 
             // the rest.
             @"(?<invalid>[^\s]+)";
@@ -232,12 +236,12 @@ namespace Urb
         {
             _print("\nBuilding expressions from {0} tokens...\n", tokens.Length);
             _transformerIndex = 0;
-            _expressions = new List<Expression>();
+            _expressions = new List<Block>();
 
             while (_transformerIndex < tokens.Length - 1)
             {
                 // build expression: //
-                var e = BuildExpression(tokens, _transformerIndex);
+                var e = BuildBlock(tokens, _transformerIndex);
                 // accumulate all expressions: //
                 if (e != null) _expressions.Add(e);
             }
@@ -247,9 +251,11 @@ namespace Urb
 
         private int _open = 0;
         private int _close = 0;
-        private List<Expression> _expressions = new List<Expression>();
+        private bool _nextExpressionQuoted = false;
+        private bool _nextAtomQuoted = false;
+        private List<Block> _expressions = new List<Block>();
 
-        private Expression BuildExpression(Token[] tokens, int index)
+        private Block BuildBlock(Token[] tokens, int index)
         {
             var acc = new List<object>();
             var i = index;
@@ -263,18 +269,32 @@ namespace Urb
                         _print(" )");
                         //_print(" end#{0} \n", _transformerIndex);
                         _transformerIndex = i + 1;
-                        return new Expression(acc.ToArray());
+                        var closedE = new Block(acc.ToArray(), _nextExpressionQuoted);
+                        _nextExpressionQuoted = false;
+                        return closedE;
 
                     case "(":
                         _open++;
                         _print("\n{0}#(", _expressions.Count);
-                        var e = BuildExpression(tokens, i + 1);
-                        if (_open == _close) return e;
+                        var openE = BuildBlock(tokens, i + 1);
+                        if (_open == _close) return openE;
                         // else just keep adding.. //
-                        acc.Add(e);
+                        acc.Add(openE);
                         i = _transformerIndex;
-
                         continue;
+
+                    case "@":
+                        /*************************************
+                         *                                   *
+                         * 1. Quoted Expression -> List      *
+                         * 2. Quoted Literal    -> Symbol    *
+                         *                                   *
+                         *************************************/
+                        _nextExpressionQuoted = tokens[i + 1].Value == "(";
+                        _nextAtomQuoted = !_nextExpressionQuoted;
+                        i++;
+                        break;
+
                     default:
                         /* Skip them all. */
                         if (tokens[i].Name == "newline" ||
@@ -284,7 +304,11 @@ namespace Urb
                             continue;
                         }
                         // except special separator we eat all //
-                        acc.Add(tokens[i]);
+                        if (_nextAtomQuoted)
+                        {
+                            acc.Add(new Token("symbol", tokens[i].Value));
+                        }
+                        else acc.Add(tokens[i]);
                         /************************************
 						 * 									*
 						 * Would we transform token here ?	*
@@ -347,29 +371,36 @@ namespace Urb
             return acc;
         }
 
-        private static Functional _buildExpression(Expression expression)
+        private static Functional _buildExpression(Block expression)
         {
             // We plugin all special forms here. //
-            if (expression.function.GetType() == typeof(Token))
+            if (expression.head.GetType() == typeof(Token))
             {
                 // transform it into primitive if possible //
-                var token = (Token)expression.function;
+                var token = (Token)expression.head;
                 switch (token.Name)
                 {
                     // All Primitives //
                     case "boolean_compare":
                     case "operator":
                     case "literal":
-                        if (_primitiveForms.ContainsKey(token.Value))
+                        if (_specialForms.ContainsKey(token.Value))
+                        {
+                            // mean it's implemented primitive. //
+                            return (Functional)Activator.CreateInstance(
+                                _specialForms[token.Value],
+                                new[] { expression.rest });
+                        }
+                        else if (_primitiveForms.ContainsKey(token.Value))
                         {
                             // mean it's implemented primitive. //
                             return (Functional)Activator.CreateInstance(
                                 _primitiveForms[token.Value],
-                                new[] { expression.transformedElements });
+                                new[] { expression.evaluatedRest });
                         }
                         else {
                             // normal function or invoke. //
-                            var f = new LiteralForm(expression.transformedElements);
+                            var f = new LiteralForm(expression.evaluatedRest);
                             f.Init(new Atom(token.Name, token.Value));
                             if (_isLiteralForm) _nestedLevel--;
                             if (_nestedLevel == 0)
@@ -404,7 +435,7 @@ namespace Urb
             }
         }
 
-        private List<Functional> _refineExpressions(List<Expression> expressions)
+        private List<Functional> _refineExpressions(List<Block> expressions)
         {
             /******************************************
 			 * 									      *
@@ -425,6 +456,7 @@ namespace Urb
         public List<Functional> BuildFunctionalTree
         (string source, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
+            _print(_nTimes("_", 80));
             // We need to eat the token here with a Lexer !
             var token_list = Reader(source, isDebugTransform, isDebugGrammar);
             var tree = Lexer(token_list, isDebugTransform);
@@ -457,26 +489,27 @@ namespace Urb
             public abstract string CompileToCSharp();
         }
 
-        public class Expression
+        public class Block
         {
-            public object function;
-            public object[] elements;
-            public object[] transformedElements
+            public object head;
+            public object[] rest;
+            public List<object> elements;
+            public object[] evaluatedRest
             {
                 get
                 {
                     var acc = new List<object>();
                     // transform all of them //
-                    foreach (var element in elements)
+                    foreach (var element in rest)
                     {
                         if (element.GetType() == typeof(Token))
                         {
                             var e = _buildAtom((Token)element);
                             acc.Add(e);
                         }
-                        else if (element.GetType() == typeof(Expression))
+                        else if (element.GetType() == typeof(Block))
                         {
-                            var e = _buildExpression((Expression)element);
+                            var e = _buildExpression((Block)element);
                             acc.Add(e);
                         }
                     }
@@ -484,26 +517,41 @@ namespace Urb
                 }
             }
 
-            public Expression(object[] args)
+            public Block(object[] args, bool isQuoted = false)
             {
+                // we keep the original. //
+                elements = new List<object>(args);
                 if (args.Length != 0)
                 {
-                    elements = new object[args.Length - 1];
-                    function = args[0];
-                    // copying... //
-                    for (int i = 1; i < args.Length; i++)
+                    if (!isQuoted)
                     {
-                        elements[i - 1] = args[i];
+                        rest = new object[args.Length - 1];
+                        head = args[0];
+                        // 1+ copying... //
+                        for (int i = 1; i < args.Length; i++)
+                        {
+                            rest[i - 1] = args[i];
+                        }
+                        // done ! //
                     }
-                    // done ! //
+                    else
+                    {
+                        rest = new object[args.Length];
+                        head = "quote";
+                        // exactly copying... //
+                        for (int i = 0; i < args.Length; i++)
+                        {
+                            rest[i] = args[i];
+                        }
+                    }
                 }
             }
 
             public override string ToString()
             {
                 var acc = "";
-                foreach (var obj in elements) acc += obj.ToString() + " ";
-                return string.Format("({0} {1})", function.ToString(), acc);
+                foreach (var obj in rest) acc += obj.ToString() + " ";
+                return string.Format("({0} {1})", head.ToString(), acc);
             }
 
         }
@@ -523,21 +571,26 @@ namespace Urb
         #endregion
 
         #region Primitives
-        // primitive functions map //
+        // special form will custom-build its arguments.
+        private static Dictionary<string, Type> _specialForms =
+            new Dictionary<string, Type>()
+            {
+                {"def", typeof(DefForm)}
+            };
+
+        // primitive form will default-build its arguments. //
         private static Dictionary<string, Type> _primitiveForms =
             new Dictionary<string, Type>()
             {
             {"require",  typeof(RequireForm)},
             {"import",  typeof(ImportForm)},
             {"inherit", typeof(InheritForm)},
-            {"static-class", typeof(StaticClassForm)},
             {"class", typeof(ClassForm)},
             {"progn", typeof(PrognForm)},
+            {"quote", typeof(QuoteForm)},
             {"new", typeof(NewForm)},
             {"set", typeof(SetForm)},
             {"setstatic", typeof(SetStaticForm)},
-            {"defun", typeof(DefunForm)},
-            {"defstatic", typeof(DefstaticForm)},
             {"override", typeof(DefoverrideForm)},
             {"return", typeof(ReturnForm)},
             {"label", typeof(LabelForm)},
@@ -606,32 +659,33 @@ namespace Urb
 
         private static string DefineClass(object[] args, bool isStatic = false)
         {
-            /*************************
-				 * 
-				 * Class Form:
-				 * 
-				 * 1. policy.
-				 * 2. name/inherit.
-				 * 3. body.
-				 * 
-				 *************************/
+            /*****************************************************************
+			 * 
+			 * Class Form:
+			 * 
+			 *  (class (inherit ClassName Interface) @(:attributes) (progn))
+			 * 
+			 *  1. name/inherit.
+			 *  2. attributes.
+			 *  3. body.
+			 * 
+			 *****************************************************************/
             var name = "";
-            var policy = "";
+            var attributes = "";
             switch (args.Length)
             {
-                case 3: // policy + name. //
-                    policy = ((Atom)args[0]).ToString();
+                case 3: // [attribute] class [name] {..} //
+                    attributes = ((Atom)args[0]).ToString();
                     name = SourceEnforce(args, 1);
                     break;
-                case 2: // ignore policy. //
+                case 2: // class [name] {..}             //
                     name = SourceEnforce(args, 0);
                     break;
                 default: throw new Exception("Malform Class");
             }
-            var _static = isStatic ? "static" : "";
-            var title = args.Length > 2 ?
-                            String.Format("{0} {1} class {2}", policy, _static, name) :
-                            String.Format("{0} class {1}", _static, name);
+            var title = args.Length == 2 ?
+                String.Format("class {0}", name) :
+                String.Format("{0} class {1}", attributes, name);
             var body = (Functional)args[args.Length - 1];
             /* adding newline before new class */
             return String.Format("\n{0}\n{1}", title, body.CompileToCSharp());
@@ -672,6 +726,18 @@ namespace Urb
                 }
                 _prognLevel--;
                 return String.Format("{{\n{0}}}", builder.ToString());
+            }
+        }
+
+        private class QuoteForm : Functional
+        {
+            public QuoteForm(object[] args) : base(args)
+            {
+                this.args = args;
+            }
+            public override string CompileToCSharp()
+            {
+                return null;
             }
         }
 
@@ -754,50 +820,80 @@ namespace Urb
         {
             /**************************************************
 			 * 
-			 * Defun:
+			 * :: DEF FORM ::
 			 * 
-			 * 1. optional policy: private/protected/public.
-			 * 2. optional attributes: static/overload. 
-			 * 3. name:return-type.
-			 * 4. args.
-			 * last. body.
+			 *  (def (name -> arg1 arg2)
+			 *       (type -> type1 type2)
+			 *       (:attribute)
+			 *       (progn &body))
+			 * 
+			 * 1. name & arg names.
+			 * 2. return type & arg types.
+			 * 3. attributes. 
+			 * 4. body.
 			 * 
 			 **************************************************/
-            var first = (Atom)args[0];
-            var policy = first.type == "symbol" ? first.value.ToString() : "";
-            var attribute = isStatic ? "static" : isOverride ? "override" : "";
-            var pair = Pair(policy == String.Empty ? first : ((Atom)args[1]));
-            var name = pair[0];
-            var returnType = pair[1];
+            var names = ((Block)args[0]).elements;
+            var types = ((Block)args[1]).elements;
+            // validate arguments count: //
+            if (!(names.Count == types.Count && names.Count > 1))
+                throw new Exception("Malform def.");
+            names.Remove(names[1]);
+            types.Remove(types[1]);
+            var name = ((Token)names[0]).Value;
+            var returnType = ((Token)types[0]).Value;
             var arguments = new StringBuilder();
-            if (policy == string.Empty && args.Length > 2 ||
-               policy != String.Empty && args.Length > 3)
-                for (int i = policy == string.Empty ? 1 : 2;
-                     i < args.Length - 1; i++)
+            // matching arguments...//
+            if (names.Count > 1)
+            {
+                for (int i = 1; i < types.Count; i++)
                 {
-                    var argPair = Pair(((Atom)args[i]));
-                    arguments.Append(string.Format(
-                        "{0} {1}" + (i + 1 < args.Length - 1 ? ", " : ""),
-                        argPair[1], argPair[0]));
+                    if (((Token)types[i]).Value != "_")
+                        arguments.Append(string.Format(
+                            "{0} {1},",
+                            ((Token)types[i]).Value,
+                            ((Token)names[i]).Value));
                 }
+                // remove last comma.
+                if (arguments.Length > 0)
+                    arguments.Remove(arguments.Length - 1, 1);
+            }
+            // collect attributes...//
+            var _attributes = args.Length == 4 ? ((Block)args[2]).elements : null;
+            var attributes = new StringBuilder();
+            if (_attributes != null)
+            {
+                foreach (Token attribute in _attributes)
+                {
+                    attributes.Append(_buildAtom(attribute).value + " ");
+                }
+                attributes.Remove(attributes.Length - 1, 1);
+            }
+            // do some processing .. //
             var body = ((Functional)args[args.Length - 1]).CompileToCSharp();
             var commit = new string[] {
-                policy,
-                attribute,
+                attributes.ToString(),
                 returnType == "ctor" ? "" : returnType,
                 name,
                 arguments.ToString(),
                 body
-            };
+                };
             /* we add newline before new function. */
-            return String.Format("\n{0} {1} {2} {3} ({4}){5}", commit);
+            return String.Format("\n{0} {1} {2} ({3}) {4}", commit);
 
         }
 
-        private class DefunForm : Functional
+        private class DefForm : Functional
         {
             public bool isStatic = false;
-            public DefunForm(object[] args) : base(args) { }
+            public DefForm(object[] args) : base(args)
+            {
+                // copying...           //
+                this.args = args;
+                // only build the body. //
+                this.args[args.Length - 1] = _buildExpression(
+                    (Block)this.args[args.Length - 1]);
+            }
             public override string CompileToCSharp()
             {
                 return BuildMethod(args);
@@ -1054,9 +1150,13 @@ namespace Urb
         #region Interpreter
         public void EvalTree(List<Functional> tree)
         {
+            _print(_nTimes("_", 80));
+            _print("* Evaluating tree.... *");
             foreach (var function in tree)
             {
                 _print(EvalFunction(function) + "\n");
+
+                _print(function.CompileToCSharp());
             }
         }
         public string EvalFunction(Functional function)
@@ -1068,7 +1168,7 @@ namespace Urb
                 //_print("{0} ", arg.GetType().Name);
                 if (arg.GetType().IsSubclassOf(typeof(Functional)))
                 {
-                    args.Append(EvalFunction(arg as Functional) + " ");
+                    args.Append("\n" + EvalFunction(arg as Functional) + " ");
                 }
                 else
                 {
