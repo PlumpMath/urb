@@ -1,6 +1,6 @@
 # ULISP
 Stay for micro lisp. 
-A minimal Unity-compatible language inpired by lisp/ruby/forth.
+A minimal Unity-compatible lisp language inpired by lisp/ruby/forth.
 
 ####1. Intend
  - a thin-layer of code transformation between csharp and common lisp, with mix of ruby warmmy code style. 
@@ -22,57 +22,48 @@ The work flow:
 
 ####4. Examples
 
-	###############################################
-	#                                             #
-	#    :: ulisp - a minimal lisp language ::    #
-	#                                             #
-	###############################################
-	(class :public (inherit Player MonoBehaviour)
-		(progn
-			(set :public Name "deulamco")
+	(class (inherit Player MonoBehaviour)
+           (:public)
+           (progn
+                (set :public Name "deulamco")
+                (set dict (new Dictionary<String,String>)) 
 
-			(set dict (new Dictionary<String,String>)) 
+                (def (Start -> _)
+                     (void  -> _)
+                     (progn
+                    (dict.Clear)
+                    (= staticA "modified.")))
 
-			(setstatic :public staticA "I'm static variable.")
+                (def (ToString -> _)
+                     (string   -> _) 
+                     (:public :override)
+                     (progn
+                         (return "ToString is Overrided.")))
 
-			(def (Start -> _)
-			     (void  -> _)
-			     (progn
-				(dict.Clear)
-				(= staticA "modified.")))
-
-			(def (ToString -> _)
-			     (string   -> _) 
-			     (:public :override)
-			     (progn
-			         (return "ToString is Overrided.")))
-
-			(def ( test -> _)
-			     ( void -> _)
-			     (:private)
-				 (progn 
-					(label Condition)
-					(var i 0)
-					(+= i 1)
-					(Console.WriteLine i)
-					(if (and (< i 10) (< -1 i) 
-						 (or true false))
-					    (jump Condition))
-					(var result i)
-					(Console.WriteLine "Good bye {0} !" result)))
+                (def ( test -> _)
+                     ( void -> _)
+                     (:private)
+                     (progn 
+                        (label Condition)
+                        (var i 0)
+                        (+= i 1)
+                        (Console.WriteLine i)
+                        (if (and (< i 10) (< -1 i) 
+                             (or true false))
+                            (jump Condition))
+                        (var result i)
+                        (Console.WriteLine "Good bye {0} !" result)))
 
 
-			(def (set_position -> x y z)
-				 (void 	   -> float float float) 
-				 (:public)
-				 (progn 
-				    (= transform.position 
-				    (new Vector3 
-				    (+ transform.position.x x)
-				    (+ transform.position.y y)
-				    (+ transform.position.z z)))))
-		)
-	)
+                (def (set_position -> x y z)
+                     (void 	   -> float float float) 
+                     (:public)
+                     (progn 
+                        (= transform.position 
+                        (new Vector3 
+                        (+ transform.position.x x)
+                        (+ transform.position.y y)
+                        (+ transform.position.z z)))))))
 
 I was experiment with all language samples transformation that can be translated into the same C# source. Just to find a way to express my thought style the most into programming. So in the end, I borrow from them all the characteristic I like the most.
 
