@@ -1,45 +1,45 @@
 #############################################
-#											#
+#                                           #
 # 'require' will add reference the library, #
-# and using it at the same time, while		#
-# 'import' just using the subset.			#
-#											#
+# and using it at the same time, while      #
+# 'import' just using the subset.           #
+#                                           #
 #############################################
 (require System)
 (import System.Collections.Generic)
 
 (class StaticLibrary 
        (:public :static)
-	   (begin
-	       (def (DemoBrace -> brace_test generic_test)
-		        (void      -> object[] Dictionary<string,object>)
-		   	    (:public :static )
-		   	    (begin))))
+       (begin
+           (def (DemoBrace -> brace_test generic_test)
+           (void      -> object[] Dictionary<string,object>)
+           (:public :static )
+           (begin))))
 
 (class GenericClass<T> 
 	   (:public)
        (begin
-	       (def (GenericClass -> type) 
-		        (ctor -> T)
-			    (:public)
-			    (begin))))
+       (def (GenericClass -> type) 
+            (ctor -> T)
+            (:public)
+            (begin))))
 
 (class NormalClass 
        (:public)
        (begin
-		    (set user (:public) "deulamco")
-		    (set dict (new Dictionary<String,String>)) 
-
+            (set user (:public) "deulamco")
+            (set dict (new Dictionary<String,String>)) 
+            
             (def (print -> line)
                  (void  -> string) # need 'params:object[]' for: 'params object[] args' 
                  (:public :static)
                  (begin
                     (Console.WriteLine line)))
 
-		    (def (pytago -> x y z)
+            (def (pytago -> x y z)
 			     (void  -> float float float)
-			     (begin
-				    (dict.Clear)
+                 (begin
+                    (dict.Clear)
                     (print
                         (string.Format
                             "Pytago: {0}" 
@@ -47,18 +47,18 @@
                                (* y y)
                                (* z z))))))
 
-		    (def (test -> _)
-			     (void -> _)
-			     (:private)
-			     (begin 
-			  	    (label Condition)
-					(var i 0)
-					(+= i 1)
-					(Console.WriteLine i)
-					(if (and (< i 10) (< -1 i) 
-			    			    (or true false))
-						(jump Condition))
-					(var result i)
-					(Console.WriteLine "Good bye {0} !" result)))			   	
+            (def (test -> _)
+                 (void -> _)
+                 (:private)
+                    (begin 
+                    (label Condition)
+                    (var i 0)
+                    (+= i 1)
+                    (Console.WriteLine i)
+                    (if (and (< i 10) (< -1 i) 
+                             (or true false))
+                        (jump Condition))
+                    	(var result i)
+                    (Console.WriteLine "Good bye {0} !" result)))			   	
 	    )
     )
