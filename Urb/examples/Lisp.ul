@@ -37,7 +37,7 @@
                     (Console.WriteLine line)))
 
             (def (pytago -> x y z)
-			     (void  -> float float float)
+	         (void  -> float float float)
                  (begin
                     (dict.Clear)
                     (print
