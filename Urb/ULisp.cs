@@ -566,7 +566,9 @@ namespace Urb
         private static Dictionary<string, Type> _specialForms =
             new Dictionary<string, Type>()
             {
-                {"def", typeof(DefForm)}
+                {"def", typeof(DefForm)},
+                {"class", typeof(ClassForm) },
+                {"set", typeof(SetForm)}
             };
 
         // primitive form will default-build its arguments. //
@@ -576,12 +578,9 @@ namespace Urb
             {"require",  typeof(RequireForm)},
             {"import",  typeof(ImportForm)},
             {"inherit", typeof(InheritForm)},
-            {"class", typeof(ClassForm)},
             {"begin", typeof(BeginForm)},
             {"quote", typeof(QuoteForm)},
             {"new", typeof(NewForm)},
-            {"set", typeof(SetForm)},
-            {"setstatic", typeof(SetStaticForm)},
             {"override", typeof(DefoverrideForm)},
             {"return", typeof(ReturnForm)},
             {"label", typeof(LabelForm)},
@@ -654,30 +653,32 @@ namespace Urb
 			 * 
 			 * Class Form:
 			 * 
-			 *  (class (inherit ClassName Interface) @(:attributes) (progn))
+			 *  (class (inherit ClassName Interface) 
+             *         (:attributes) 
+             *         (progn))
 			 * 
 			 *  1. name/inherit.
 			 *  2. attributes.
 			 *  3. body.
 			 * 
 			 *****************************************************************/
-            var name = "";
+            var name = ((Token)args[0]).Value;
             var attributes = "";
+
             switch (args.Length)
             {
                 case 3: // [attribute] class [name] {..} //
-                    attributes = ((Atom)args[0]).ToString();
-                    name = SourceEnforce(args, 1);
+                    attributes = _buildAttributes(
+                        ((Block)args[1]).elements);
                     break;
                 case 2: // class [name] {..}             //
-                    name = SourceEnforce(args, 0);
                     break;
                 default: throw new Exception("Malform Class");
             }
             var title = args.Length == 2 ?
                 String.Format("class {0}", name) :
                 String.Format("{0} class {1}", attributes, name);
-            var body = (Functional)args[args.Length - 1];
+            var body = _buildExpression(args[args.Length - 1] as Block);
             /* adding newline before new class */
             return String.Format("\n{0}\n{1}", title, body.CompileToCSharp());
 
@@ -754,24 +755,37 @@ namespace Urb
 
         private static string SetVariable(object[] args, bool isStatic = false)
         {
-            // 3 args: policy, name & binding.
-            var policy = args.Length == 3 ? ((Atom)args[0]).ToString() : "";
-            var attribute = isStatic ? "static" : "";
+            /*************************************************************
+             * 
+             * :: SET ::
+             * 
+             * (set name (:attributes) value)
+             * 
+             * 1. name
+             * 2. attributes
+             * 3. value
+             * 
+             *************************************************************/
+            var name = ((Token)args[0]).Value;
+            var attributes = 
+                args.Length == 3 ?
+                _buildAttributes(((Block)args[1]).elements) : "";
             var type = "";
-            var name = ((Atom)args[args.Length - 2]).ToString();
             var binding = "";
-            if (args[args.Length - 1].GetType() == typeof(NewForm))
+            var body = args[args.Length - 1];
+            if (body.GetType() == typeof(Block))
             {
-                type = ((NewForm)args[args.Length - 1]).type.ToString();
-                binding = ((NewForm)args[args.Length - 1]).CompileToCSharp();
+                var _block = _buildExpression((Block)body);
+                type = ((NewForm)_block).type.ToString();
+                binding = ((NewForm)_block).CompileToCSharp();
             }
             else // just value //
             {
-                type = ((Atom)args[args.Length - 1]).value.GetType().Name;
-                binding = ((Atom)args[args.Length - 1]).ToString();
+                type = ((Token)body).Name;
+                binding = ((Token)body).Value;
             }
-            return String.Format("{0} {1} {2} {3} = {4};",
-                policy, attribute, type, name, binding);
+            return String.Format("{0} {1} {2} = {3};",
+                attributes, type, name, binding);
 
         }
 
@@ -782,16 +796,7 @@ namespace Urb
             {
                 return SetVariable(args);
             }
-        }
-
-        private class SetStaticForm : Functional
-        {
-            public SetStaticForm(object[] args) : base(args) { }
-            public override string CompileToCSharp()
-            {
-                return SetVariable(args, isStatic: true);
-            }
-        }
+        }               
 
         private static string[] Pair(Atom atom)
         {
@@ -843,6 +848,23 @@ namespace Urb
             }
             // collect attributes...//
             var _attributes = args.Length == 4 ? ((Block)args[2]).elements : null;
+           
+            // do some processing .. //
+            var body = ((Functional)args[args.Length - 1]).CompileToCSharp();
+            var commit = new string[] {
+                _buildAttributes(_attributes),
+                returnType == "ctor" ? "" : returnType,
+                name,
+                arguments.ToString(),
+                body
+                };
+            /* we add newline before new function. */
+            return String.Format("\n{0} {1} {2} ({3}) {4}", commit);
+
+        }
+
+        private static string _buildAttributes(List<object> _attributes)
+        {
             var attributes = new StringBuilder();
             if (_attributes != null)
             {
@@ -852,18 +874,7 @@ namespace Urb
                 }
                 attributes.Remove(attributes.Length - 1, 1);
             }
-            // do some processing .. //
-            var body = ((Functional)args[args.Length - 1]).CompileToCSharp();
-            var commit = new string[] {
-                attributes.ToString(),
-                returnType == "ctor" ? "" : returnType,
-                name,
-                arguments.ToString(),
-                body
-                };
-            /* we add newline before new function. */
-            return String.Format("\n{0} {1} {2} ({3}) {4}", commit);
-
+            return attributes.ToString();
         }
 
         private class DefForm : Functional
