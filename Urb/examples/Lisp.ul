@@ -6,80 +6,56 @@
 #											#
 #############################################
 (require System)
-(require UnityEngine)
 (import System.Collections.Generic)
 
 (class :public StaticLibrary
 	(begin
 	   	(def (DemoBrace -> brace_test generic_test)
-		   		 (void	    -> object[] Dictionary<string,object>)
-		   		 (:public :static )
-		   		 (begin)
-	   	)
-	)
-)
+		     (void	    -> object[] Dictionary<string,object>)
+		   	 (:public :static )
+		   	 (begin))))
 
 (class :public GenericClass<T> 
 	(begin
-		###############
-		#			  #
-		# constructor #
-		# 			  #
-		###############
 		(def (GenericClass -> type) 
-				 (ctor -> T)
-				 (:public)
-				 (begin))
-	)
-)
+			 (ctor -> T)
+			 (:public)
+			 (begin))))
 
-##################################################
-#												 #
-#  :: class ::									 #
-#												 #
-# 'inherit' is like a function that output merge #
-# of class name and all of its heritance types.  #
-#												 #
-##################################################
-(class :public (inherit Player MonoBehaviour)
+(class :public NormalClass
 	(begin
-		(set :public Name "deulamco")
+		(set :public user "deulamco")
 		(set dict (new Dictionary<String,String>)) 
 
-		(def (Start -> _)
-			 	 (void  -> _)
-			 	 (begin
-			   		(dict.Clear)))
+        (def (print -> line)
+             (void  -> string) # need 'params:object[]' for: 'params object[] args' 
+             (:public :static)
+             (begin
+                (Console.WriteLine line)))
 
-		(def (ToString -> _)
-				 (string   -> _) 
-				 (:public :override)
-				 (begin
-				 		(return "ToString is Overrided.")))
+		(def (pytago -> x y z)
+			 (void  -> float float float)
+			 (begin
+				(dict.Clear)
+                (print
+                    (string.Format
+                        "Pytago: {0}" 
+                        (+ (* x x)
+                           (* y y)
+                           (* z z))))))
 
 		(def (test -> _)
-			   (void -> _)
-				 (:private)
-				 (begin 
-				  	(label Condition)
-						(var i 0)
-						(+= i 1)
-						(Console.WriteLine i)
-						(if (and (< i 10) (< -1 i) 
-								 (or true false))
-								(jump Condition))
-						(var result i)
-						(Console.WriteLine "Good bye {0} !" result)))
-
-
-		(def (set_position -> x y z)
-				 (void  		   -> float float float) 
-				 (:public)
-			   (begin 
-			   	 (= transform.position 
-				   (new Vector3 
-					    (+ transform.position.x x)
-					    (+ transform.position.y y)
-			 		    (+ transform.position.z z)))))
+			 (void -> _)
+			 (:private)
+			 (begin 
+			  	(label Condition)
+					(var i 0)
+					(+= i 1)
+					(Console.WriteLine i)
+					(if (and (< i 10) (< -1 i) 
+			    			 (or true false))
+						(jump Condition))
+					(var result i)
+					(Console.WriteLine "Good bye {0} !" result)))			   	
 	)
 )

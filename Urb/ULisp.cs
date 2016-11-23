@@ -331,35 +331,32 @@ namespace Urb
         #endregion
 
         #region Code Transformation
-
-        private static bool _isLiteralForm = false;
-        private static int _nestedLevel = 0;
+                                                   
         private class LiteralForm : Functional
-        {
-            public bool isSingleStatement = false;
+        {                                           
             private string _functionLiteral;
-            public LiteralForm(object[] args) : base(args) { }
+            public LiteralForm(object[] args) : base(args) {}
             public void Init(Atom function)
-            {
+            {   
                 _functionLiteral = function.value.ToString();
             }
             public override string CompileToCSharp()
-            {
-                _isLiteralForm = true;
-                if (!isSingleStatement) _nestedLevel++;
+            {                           
                 var acc = new StringBuilder();
                 for (int i = 0; i < args.Length; i++)
-                {
+                {                                              
                     var arg = args[i].GetType() == typeof(Atom) ?
                         " " + ((Atom)args[i]).ToString() :
                                      SourceEnforce(args, i);
+
                     // the commas part. 
                     var comma = (i + 1 < args.Length ? ", " : "");
                     acc.Append(arg + comma);
-                }
-                return string.Format(
-                    _nTimes("    ", _nestedLevel) +
-                    " {0} ({1})" + (isSingleStatement ? ";" : ""),
+                }              
+                return string.Format(             
+                    " {0} ({1})" 
+                    //+ (isSingleStatement ? ";" : "")
+                    ,
                     _functionLiteral, acc.ToString());
             }
         }
@@ -375,7 +372,7 @@ namespace Urb
         {
             // We plugin all special forms here. //
             if (expression.head.GetType() == typeof(Token))
-            {
+            {                       
                 // transform it into primitive if possible //
                 var token = (Token)expression.head;
                 switch (token.Name)
@@ -399,15 +396,9 @@ namespace Urb
                                 new[] { expression.evaluatedRest });
                         }
                         else {
-                            // normal function or invoke. //
-                            var f = new LiteralForm(expression.evaluatedRest);
-                            f.Init(new Atom(token.Name, token.Value));
-                            if (_isLiteralForm) _nestedLevel--;
-                            if (_nestedLevel == 0)
-                            {
-                                _isLiteralForm = false;
-                                f.isSingleStatement = true;
-                            }
+                            // normal function or invoke. //   
+                            var f = new LiteralForm(expression.evaluatedRest);           
+                            f.Init(new Atom(token.Name, token.Value));             
                             return f;
                         }
                     //throw new NotImplementedException("Unknown form: " + token.Value);
@@ -692,15 +683,6 @@ namespace Urb
 
         }
 
-        private class StaticClassForm : Functional
-        {
-            public StaticClassForm(object[] args) : base(args) { }
-            public override string CompileToCSharp()
-            {
-                return DefineClass(args, isStatic: true);
-            }
-        }
-
         private class ClassForm : Functional
         {
             public ClassForm(object[] args) : base(args) { }
@@ -722,7 +704,8 @@ namespace Urb
                 {
                     // just to hot fix //
                     if (function != null)
-                        builder.AppendLine(function.CompileToCSharp());
+                        builder.AppendLine(function.CompileToCSharp() +
+                        (function.GetType() == typeof(LiteralForm) ? ";": ""));
                 }
                 _beginLevel--;
                 return String.Format("{{\n{0}}}", builder.ToString());
@@ -954,11 +937,7 @@ namespace Urb
         {
             public IfForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
-            {
-                //_nestedLevel++;
-                if (args[0].GetType() == typeof(LiteralForm))
-                    ((LiteralForm)args[0]).isSingleStatement = false;
-
+            {                                                                  
                 var condition = SourceEnforce(args, 0);
                 var body = SourceEnforce(args, 1);
                 return String.Format("if ({0}) {{\n{1}\n}}", condition, body);
@@ -1257,7 +1236,7 @@ namespace Urb
             compiler_parameter.OutputAssembly = fileName;
             compiler_parameter.GenerateInMemory = isInMemory;
             foreach (var name in references)
-                compiler_parameter.ReferencedAssemblies.Add(name);
+                compiler_parameter.ReferencedAssemblies.Add(name + ".dll");
 
             var compiler = new CSharpCodeProvider();
 
@@ -1295,9 +1274,7 @@ namespace Urb
         private void _reset_state()
         {
             _csharp_blocks.Clear();
-            _expressions.Clear();
-            _isLiteralForm = false;
-            _nestedLevel = 0;
+            _expressions.Clear();    
             _open = _close = 0;
             _beginLevel = 0;
             _token_array = null;

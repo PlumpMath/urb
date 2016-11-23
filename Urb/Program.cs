@@ -23,7 +23,7 @@ namespace Urb
                 (def (square -> x) 
                      (int    -> int)
                      (:public :static)
-                     (progn
+                     (begin
                         (return (* x x))))
 
                 (square 4)
@@ -37,6 +37,7 @@ namespace Urb
             uLisp.Compile(source, "demo.dll", isDebugTransform: true);
             //uLisp.Compile(source, "demo.dll", false, true, true);
 
+            Console.ReadLine();
         }
     }
 }
