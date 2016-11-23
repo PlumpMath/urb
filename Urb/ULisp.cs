@@ -836,10 +836,12 @@ namespace Urb
             {
                 for (int i = 1; i < types.Count; i++)
                 {
-                    if (((Token)types[i]).Value != "_")
+                    
+                    var type = (Token)types[i];
+                    if (type.Value != "_")
                         arguments.Append(string.Format(
-                            "{0} {1},",
-                            ((Token)types[i]).Value,
+                            "{0} {1},", 
+                            type.Name=="pair" ? type.Value.Replace(':', ' ') : type.Value,
                             ((Token)names[i]).Value));
                 }
                 // remove last comma.

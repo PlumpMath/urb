@@ -29,6 +29,12 @@
        (begin
 		    (set user (:public) "deulamco")
 		    (set dict (new Dictionary<String,String>)) 
+            
+            (def (print -> line args)
+                 (void  -> string params:object[]) 
+                 (:public :static)
+                 (begin
+                    (Console.WriteLine line)))
 
             (def (print -> line)
                  (void  -> string) # need 'params:object[]' for: 'params object[] args' 
