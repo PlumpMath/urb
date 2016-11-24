@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -50,14 +50,12 @@
     <Compile Include="UForth.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="examples\LispHigh.ul" />
     <None Include="examples\Ruby.rb" />
     <None Include="examples\Lisp.ul" />
     <None Include="lib\repl_init.ul" />
     <None Include="examples\Forth.ufo" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="examples\" />
-    <Folder Include="lib\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

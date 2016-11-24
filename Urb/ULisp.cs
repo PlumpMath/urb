@@ -53,6 +53,8 @@ namespace Urb
             @"(?<tab>\t)|" +
             // quote
             @"(?<quote>\@)|" +
+            // unquote
+            @"(?<unquote>\!)|" +
             // forward
             @"(?<forward>\-\>)|" +
             // comma, () and []
@@ -159,8 +161,7 @@ namespace Urb
                    ((Functional)args[index]).CompileToCSharp()
                                   : (string)((Atom)args[index]).value;
         }
-
-
+        
         private static void _print(string line)
         {
             Console.WriteLine(line);
@@ -179,7 +180,7 @@ namespace Urb
         private int _token_index = -1;
 
         // Well, I think we should play dirty :P 
-        public List<Functional> Lexer(List<Token> token_list, bool isDebugTransform = false)
+        public List<Block> Lexer(List<Token> token_list, bool isDebugTransform = false)
         {
             if (isDebugTransform) Console.WriteLine("Lexing..");
 
@@ -195,11 +196,10 @@ namespace Urb
             /// 									///
             ///////////////////////////////////////////
             TransformTokens(_token_array, acc, isDebugTransform);
-            var functions = _refineExpressions(_expressions);
-            return functions;
+            return _tokenTree;
         }
-
-        private string _transformIntoCSharp(List<Functional> functions, bool isDebugTransform = false)
+        
+        private string ExpressionToCSharp(List<Functional> functions, bool isDebugTransform = false)
         {
             foreach (var function in functions)
             {
@@ -236,14 +236,14 @@ namespace Urb
         {
             _print("\nBuilding expressions from {0} tokens...\n", tokens.Length);
             _transformerIndex = 0;
-            _expressions = new List<Block>();
+            _tokenTree = new List<Block>();
 
             while (_transformerIndex < tokens.Length - 1)
             {
                 // build expression: //
                 var e = BuildBlock(tokens, _transformerIndex);
                 // accumulate all expressions: //
-                if (e != null) _expressions.Add(e);
+                if (e != null) _tokenTree.Add(e);
             }
 
             // Here we have a full parsed tree ! //
@@ -253,7 +253,7 @@ namespace Urb
         private int _close = 0;
         private bool _nextExpressionQuoted = false;
         private bool _nextAtomQuoted = false;
-        private List<Block> _expressions = new List<Block>();
+        private List<Block> _tokenTree = new List<Block>();
 
         private Block BuildBlock(Token[] tokens, int index)
         {
@@ -275,7 +275,7 @@ namespace Urb
 
                     case "(":
                         _open++;
-                        _print("\n{0}#(", _expressions.Count);
+                        _print("\n{0}#(", _tokenTree.Count);
                         var openE = BuildBlock(tokens, i + 1);
                         if (_open == _close) return openE;
                         // else just keep adding.. //
@@ -283,17 +283,6 @@ namespace Urb
                         i = _transformerIndex;
                         continue;
 
-                    case "@":
-                        /*************************************
-                         *                                   *
-                         * 1. Quoted Expression -> List      *
-                         * 2. Quoted Literal    -> Symbol    *
-                         *                                   *
-                         *************************************/
-                        _nextExpressionQuoted = tokens[i + 1].Value == "(";
-                        _nextAtomQuoted = !_nextExpressionQuoted;
-                        i++;
-                        break;
 
                     default:
                         /* Skip them all. */
@@ -304,11 +293,7 @@ namespace Urb
                             continue;
                         }
                         // except special separator we eat all //
-                        if (_nextAtomQuoted)
-                        {
-                            acc.Add(new Token("symbol", tokens[i].Value));
-                        }
-                        else acc.Add(tokens[i]);
+                        acc.Add(tokens[i]);
                         /************************************
 						 * 									*
 						 * Would we transform token here ?	*
@@ -330,8 +315,30 @@ namespace Urb
 
         #endregion
 
-        #region Code Transformation
-                                                   
+        #region Macro Expander
+
+        private List<Block> MacroExpand(List<Block> blocks)
+        {
+            /******************************************
+			 * 									      *
+			 *            MACROS EXPANDING            *
+             *                          		   	  *
+			 * Here we expand all macros & high level *
+             * functions into low-level expressions.  *
+             * terminate all of them.                 *
+             *                                        *
+             * For block that need to be evaluated at *
+             * expanding-time, only interpreter-level *
+             * implemented functions can be used.     *
+			 * 									   	  *
+			 ******************************************/
+            return blocks;
+        }
+
+        #endregion
+
+        #region TokenTree -> Expressions
+
         private class LiteralForm : Functional
         {                                           
             private string _functionLiteral;
@@ -368,13 +375,13 @@ namespace Urb
             return acc;
         }
 
-        private static Functional _buildExpression(Block expression)
+        private static Functional _insertPrimitives(Block block)
         {
             // We plugin all special forms here. //
-            if (expression.head.GetType() == typeof(Token))
+            if (block.head.GetType() == typeof(Token))
             {                       
                 // transform it into primitive if possible //
-                var token = (Token)expression.head;
+                var token = (Token)block.head;
                 switch (token.Name)
                 {
                     // All Primitives //
@@ -386,18 +393,18 @@ namespace Urb
                             // mean it's implemented primitive. //
                             return (Functional)Activator.CreateInstance(
                                 _specialForms[token.Value],
-                                new[] { expression.rest });
+                                new[] { block.rest });
                         }
                         else if (_primitiveForms.ContainsKey(token.Value))
                         {
                             // mean it's implemented primitive. //
                             return (Functional)Activator.CreateInstance(
                                 _primitiveForms[token.Value],
-                                new[] { expression.evaluatedRest });
+                                new[] { block.evaluatedRest });
                         }
                         else {
                             // normal function or invoke. //   
-                            var f = new LiteralForm(expression.evaluatedRest);           
+                            var f = new LiteralForm(block.evaluatedRest);           
                             f.Init(new Atom(token.Name, token.Value));             
                             return f;
                         }
@@ -426,7 +433,7 @@ namespace Urb
             }
         }
 
-        private List<Functional> _refineExpressions(List<Block> expressions)
+        private List<Functional> TokenTreeToExpressions(List<Block> tree)
         {
             /******************************************
 			 * 									      *
@@ -435,11 +442,11 @@ namespace Urb
 			 * 									   	  *
 			 ******************************************/
             var result = new List<Functional>();
-            foreach (var expression in expressions)
+            foreach (var block in tree)
             {
-                // continue building expression tree //
-                var refinedExpression = _buildExpression(expression);
-                result.Add(refinedExpression);
+                // inserting primitives....               //
+                var expression = _insertPrimitives(block);
+                result.Add(expression);
             }
             return result;
         }
@@ -451,17 +458,16 @@ namespace Urb
             // We need to eat the token here with a Lexer !
             var token_list = Reader(source, isDebugTransform, isDebugGrammar);
             var tree = Lexer(token_list, isDebugTransform);
-            return tree;
+            var expansion = MacroExpand(tree);
+            var expression = TokenTreeToExpressions(expansion);
+            return expression;
         }
 
         public string CompileIntoCSharp
         (string source, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
-
-            // We need to eat the token here with a Lexer !
-            var token_list = Reader(source, isDebugTransform, isDebugGrammar);
-            var tree = Lexer(token_list, isDebugTransform);
-            var csharp_source = _transformIntoCSharp(tree, isDebugTransform);
+            var expression = BuildFunctionalTree(source, isDebugTransform, isDebugGrammar);
+            var csharp_source = ExpressionToCSharp(expression, isDebugTransform);
             return csharp_source;
         }
 
@@ -476,7 +482,10 @@ namespace Urb
             {
                 args = _args;
             }
-            //public abstract object Eval();
+            public virtual object Eval(object[] args, Dictionary<string, object> env)
+            {
+                return null;
+            }
             public abstract string CompileToCSharp();
         }
 
@@ -500,7 +509,7 @@ namespace Urb
                         }
                         else if (element.GetType() == typeof(Block))
                         {
-                            var e = _buildExpression((Block)element);
+                            var e = _insertPrimitives((Block)element);
                             acc.Add(e);
                         }
                     }
@@ -579,7 +588,6 @@ namespace Urb
             {"import",  typeof(ImportForm)},
             {"inherit", typeof(InheritForm)},
             {"begin", typeof(BeginForm)},
-            {"quote", typeof(QuoteForm)},
             {"new", typeof(NewForm)},
             {"override", typeof(DefoverrideForm)},
             {"return", typeof(ReturnForm)},
@@ -678,7 +686,7 @@ namespace Urb
             var title = args.Length == 2 ?
                 String.Format("class {0}", name) :
                 String.Format("{0} class {1}", attributes, name);
-            var body = _buildExpression(args[args.Length - 1] as Block);
+            var body = _insertPrimitives(args[args.Length - 1] as Block);
             /* adding newline before new class */
             return String.Format("\n{0}\n{1}", title, body.CompileToCSharp());
 
@@ -712,19 +720,7 @@ namespace Urb
                 return String.Format("{{\n{0}}}", builder.ToString());
             }
         }
-
-        private class QuoteForm : Functional
-        {
-            public QuoteForm(object[] args) : base(args)
-            {
-                this.args = args;
-            }
-            public override string CompileToCSharp()
-            {
-                return null;
-            }
-        }
-
+        
         private class NewForm : Functional
         {
             public StringBuilder type = new StringBuilder();
@@ -775,7 +771,7 @@ namespace Urb
             var body = args[args.Length - 1];
             if (body.GetType() == typeof(Block))
             {
-                var _block = _buildExpression((Block)body);
+                var _block = _insertPrimitives((Block)body);
                 type = ((NewForm)_block).type.ToString();
                 binding = ((NewForm)_block).CompileToCSharp();
             }
@@ -887,8 +883,8 @@ namespace Urb
                 // copying...           //
                 this.args = args;
                 // only build the body. //
-                this.args[args.Length - 1] = _buildExpression(
-                    (Block)this.args[args.Length - 1]);
+                this.args[args.Length - 1] = 
+                    _insertPrimitives((Block)this.args[args.Length - 1]);
             }
             public override string CompileToCSharp()
             {
@@ -939,6 +935,9 @@ namespace Urb
             public VarForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
+                if (args.Length != 2)
+                    throw new Exception("malform var: not enough arguments !");
+
                 var name = ((Atom)args[0]).ToString();
                 var value = args[1].GetType() == typeof(Atom) ?
                     ((Atom)args[1]).value : SourceEnforce(args, 1);
@@ -1178,54 +1177,34 @@ namespace Urb
 
 
         // experiment before actual improvement //
-        private string _replSource = String.Empty;
+        // private string _replSource = String.Empty;
         public void EvalTree(List<Functional> tree)
         {
             _print(_nTimes("_", 80));
             _print("* Evaluating tree.... *");
-            var acc = "";
-            var refs = string.Empty;
+            //var acc = "";
+            //var refs = string.Empty;
             foreach (var function in tree)
             {
                 _print(EvalFunction(function) + "\n");
                 _print(function.CompileToCSharp());
-                if (function.GetType() != (typeof(RequireForm)) &&
-                    function.GetType() != (typeof(ImportForm)))
-                {
-                    acc += function.CompileToCSharp();
-                }
-                else
-                {
-                    refs += function.CompileToCSharp();
-                }
+            
             }
-            var asm = _compile_csharp_source(acc, "repl_env.dll", false, true);
-            if (asm != null)
-            {
-                // mean no error. then we merge code. //
-                _replSource += acc;
-                if(refs != String.Empty)
-                {
-                    // refs > source reassignment.        //
-                    string _final = refs + "\n" + _replSource;
-                    _replSource = _final;
-                }
-                /*****************************************************
-                 * 
-                 * Actually, we can just modify the functional tree,
-                 * and then re-compile the whole thing. So we can 
-                 * have more control on this by:
-                 * 
-                 * 0. Improve references to manage lib/ns.
-                 * 1. Improve class to manage its functions/vars.
-                 * 2. Improve function to manage:
-                 *      - its local variables.
-                 *      - its statements.
-                 *      - its expression.
-                 *      so we can trace back when needed.
-                 * 
-                 *****************************************************/
-            }
+            /*****************************************************
+            * 
+            * Actually, we can just modify the functional tree,
+            * and then re-compile the whole thing. So we can 
+            * have more control on this by:
+            * 
+            * 0. Improve references to manage lib/ns.
+            * 1. Improve class to manage its functions/vars.
+            * 2. Improve function to manage:
+            *      - its local variables.
+            *      - its statements.
+            *      - its expression.
+            *      so we can trace back when needed.
+            * 
+            *****************************************************/
         }
         public string EvalFunction(Functional function)
         {
@@ -1363,7 +1342,7 @@ namespace Urb
         private void _reset_state()
         {
             _csharp_blocks.Clear();
-            _expressions.Clear();    
+            _tokenTree.Clear();    
             _open = _close = 0;
             _beginLevel = 0;
             _token_array = null;

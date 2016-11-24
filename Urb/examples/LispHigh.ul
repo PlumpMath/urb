@@ -1,0 +1,12 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                           ;;
+;;           High level functions            ;;
+;;                                           ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;(repl)
+
+(var lst @(1 2 3))
+
+(var symbol "Symbol")
+(var store @(print !symbol))
+(eval store)

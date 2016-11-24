@@ -22,25 +22,26 @@ namespace Urb
             // Test Source:
             else
             {
+                // minimal test.
+            //    uLisp.ReplTest(@"
+            //    (repl)
+
+            //    (var lst @(1 2 3))
+            //    (var syms @symbol)
+
+            //    (var symbol 1)
+            //    (var store @(print !symbol))
+            //    (eval store)
+            //");
+
                 source = File.ReadAllText("../../examples/Lisp.ul");
 
                 // Compiling..
                 uLisp.Compile(source, "demo.dll", isDebugTransform: true);
                 //uLisp.Compile(source, "demo.dll", false, true, true);
-
-                // minimal test.
-                uLisp.ReplTest(@"
-                (def (square -> x) 
-                     (int    -> int)
-                     (:public :static)
-                     (begin
-                        (return (* x x))))
-
-                (square 4)
-            ");
-
+                
                 // it's not ready yet.
-                // uLisp.ReplSession();
+                uLisp.ReplSession();
             }
             // wait for prompt.
             Console.ReadLine();
