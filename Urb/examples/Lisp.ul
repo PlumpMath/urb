@@ -1,10 +1,10 @@
-#############################################
-#                                           #
-# 'require' will add reference the library, #
-# and using it at the same time, while      #
-# 'import' just using the subset.           #
-#                                           #
-#############################################
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                           ;;
+;; 'require' will add reference the library, ;;
+;; and using it at the same time, while      ;;
+;; 'import' just using the subset.           ;;
+;;                                           ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (require System)
 (import System.Collections.Generic)
 
@@ -12,7 +12,7 @@
        (:public :static)
        (begin
            (def (DemoBrace -> brace_test generic_test)
-           (void      -> object[] Dictionary<string,object>)
+           (void           -> object[]   Dictionary<string,object>)
            (:public :static )
            (begin))))
 
@@ -30,14 +30,20 @@
             (set user (:public) "deulamco")
             (set dict (new Dictionary<String,String>)) 
             
+            (def (print -> line args)
+                 (void  -> string params:object[]) 
+                 (:public :static)
+                 (begin
+                    (Console.WriteLine line)))
+                    
             (def (print -> line)
-                 (void  -> string) # need 'params:object[]' for: 'params object[] args' 
+                 (void  -> string) 
                  (:public :static)
                  (begin
                     (Console.WriteLine line)))
 
             (def (pytago -> x y z)
-	         (void  -> float float float)
+	             (void   -> float float float)
                  (begin
                     (dict.Clear)
                     (print
@@ -51,14 +57,14 @@
                  (void -> _)
                  (:private)
                     (begin 
-                    (label Condition)
-                    (var i 0)
-                    (+= i 1)
-                    (Console.WriteLine i)
-                    (if (and (< i 10) (< -1 i) 
-                             (or true false))
-                        (jump Condition))
-                    	(var result i)
-                    (Console.WriteLine "Good bye {0} !" result)))			   	
+                        (label Condition)
+                        (var i 0)
+                        (+= i 1)
+                        (Console.WriteLine i)
+                        (if (and (< i 10) (< -1 i) 
+                                 (or true false))
+                            (jump Condition))
+                    	    (var result i)
+                        (Console.WriteLine "Good bye {0} !" result)))			   	
 	    )
-    )
+)

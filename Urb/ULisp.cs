@@ -78,7 +78,7 @@ namespace Urb
             @"(?<boolean_condition>[\|\||\&\&])|" +
 
             // #Comments
-            @"(?<comment>#.*\n)|" +
+            @"(?<comment>;;.*\n)|" +
 
             // :Symbol
             @"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -1140,15 +1140,91 @@ namespace Urb
         #endregion
 
         #region Interpreter
+        /********************************************************
+         * 
+         * :: INTERPRETER ::
+         * 
+         * we can have structure like this:
+         * 
+         *          [ REPL ]
+         *             |
+         *       [ INTERPRETER ]
+         *             |
+         *   [ HIGH LEVEL FUNCTION ]
+         *             |
+         *    [ MACROS EXPANSION ]
+         *             |
+         * [ LOW LEVEL FUNCTION TREE ]
+         *             |
+         *   [ CSHARP SOURCE CODE ]
+         *             |
+         *        [ ASSEMBLY ]
+         *        
+         *  So we completed infranstructure for 3 lowest levels,
+         *  and continue to ground-up build above layers of eval.
+         * 
+         * 1. INTERPRETER
+         * 
+         * 2. HIGH LEVEL FUNCTION
+         *    - won't relate much to C# primitives, but LISP.
+         *      functions here mostly work w/ interpreter and
+         *      compiler directive level.
+         *    - as most of them are like macros and transformers.
+         *    
+         * 3. MACROS EXPANSION
+         *    - expand high-level function into low-level tree. 
+         * 
+         **********************************************************/
+
+
+        // experiment before actual improvement //
+        private string _replSource = String.Empty;
         public void EvalTree(List<Functional> tree)
         {
             _print(_nTimes("_", 80));
             _print("* Evaluating tree.... *");
+            var acc = "";
+            var refs = string.Empty;
             foreach (var function in tree)
             {
                 _print(EvalFunction(function) + "\n");
-
                 _print(function.CompileToCSharp());
+                if (function.GetType() != (typeof(RequireForm)) &&
+                    function.GetType() != (typeof(ImportForm)))
+                {
+                    acc += function.CompileToCSharp();
+                }
+                else
+                {
+                    refs += function.CompileToCSharp();
+                }
+            }
+            var asm = _compile_csharp_source(acc, "repl_env.dll", false, true);
+            if (asm != null)
+            {
+                // mean no error. then we merge code. //
+                _replSource += acc;
+                if(refs != String.Empty)
+                {
+                    // refs > source reassignment.        //
+                    string _final = refs + "\n" + _replSource;
+                    _replSource = _final;
+                }
+                /*****************************************************
+                 * 
+                 * Actually, we can just modify the functional tree,
+                 * and then re-compile the whole thing. So we can 
+                 * have more control on this by:
+                 * 
+                 * 0. Improve references to manage lib/ns.
+                 * 1. Improve class to manage its functions/vars.
+                 * 2. Improve function to manage:
+                 *      - its local variables.
+                 *      - its statements.
+                 *      - its expression.
+                 *      so we can trace back when needed.
+                 * 
+                 *****************************************************/
             }
         }
         public string EvalFunction(Functional function)
