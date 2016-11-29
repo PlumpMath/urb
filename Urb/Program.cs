@@ -41,7 +41,7 @@ namespace Urb
                 //uLisp.Compile(source, "demo.dll", false, true, true);
                 
                 // it's not ready yet.
-                uLisp.ReplSession();
+                //uLisp.ReplSession();
             }
             // wait for prompt.
             Console.ReadLine();

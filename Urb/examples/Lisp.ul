@@ -8,6 +8,21 @@
 (require System)
 (import System.Collections.Generic)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; statements outside of class will be inside ReplEnvironment ns.
+;; being invoked during compiling in-order of source code.
+;; in C#:
+;; ClassA.Invoke(ReplEnvironment.DoSomething, new object[]{a,b,c});
+;;
+;; * Interpreter main functions:
+;;
+;; 1. Define class/method/variables
+;; 2. Invoke methods/variables.
+;; 3. Refer assemblies as references.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (class StaticLibrary 
        (:public :static)
        (begin
