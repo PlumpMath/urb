@@ -23,25 +23,19 @@ namespace Urb
             else
             {
                 // minimal test.
-            //    uLisp.ReplTest(@"
-            //    (repl)
+                ULisp.ReplTest(@"
+                    ;; as quote test
+                    (compile @((require System)))
+                ");
 
-            //    (var lst @(1 2 3))
-            //    (var syms @symbol)
-
-            //    (var symbol 1)
-            //    (var store @(print !symbol))
-            //    (eval store)
-            //");
-
-                source = File.ReadAllText("../../examples/Lisp.ul");
+                //source = File.ReadAllText("../../examples/Lisp.ul");
 
                 // Compiling..
-                uLisp.Compile(source, "demo.dll", isDebugTransform: true);
+                //uLisp.Compile(source, "demo.dll", isDebugTransform: true);
                 //uLisp.Compile(source, "demo.dll", false, true, true);
-                
+
                 // it's not ready yet.
-                //uLisp.ReplSession();
+                ULisp.ReplSession();
             }
             // wait for prompt.
             Console.ReadLine();

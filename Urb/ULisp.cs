@@ -97,7 +97,7 @@ namespace Urb
         #region Reader: source -> token
         // Readline.
 
-        public List<Token> Reader(string source, bool isDebugTransform = false, bool isDebugGrammar = false)
+        public static List<Token> Reader(string source, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
             var token_list = new List<Token>();
             var regex_pattern = new Regex(pattern);
@@ -135,22 +135,22 @@ namespace Urb
         #endregion
 
         #region Line Helpers 
-        private List<string> _csharp_blocks = new List<string>();
+        private static List<string> _csharp_blocks = new List<string>();
 
-        private void InspectLine(List<Token> line)
+        private static void InspectLine(List<Token> line)
         {
             foreach (var word in line) Console.Write("{0} ", word);
             Console.WriteLine();
         }
 
-        private string ViewLine(Token[] line)
+        private static string ViewLine(Token[] line)
         {
             var s = String.Empty;
             foreach (var word in line) s += String.Format("{0} ", word.Value);
             return s;
         }
 
-        private void AddSource(string line)
+        private static void AddSource(string line)
         {
             _csharp_blocks.Add(line);
         }
@@ -176,11 +176,16 @@ namespace Urb
         #endregion
 
         #region Lexer
-        private Token[] _token_array;
-        private int _token_index = -1;
+        private static Token[] _token_array;
+        private static int _token_index = -1;
 
-        // Well, I think we should play dirty :P 
-        public List<Block> Lexer(List<Token> token_list, bool isDebugTransform = false)
+        /// <summary>
+        /// Construct S-Expression List from flat token list.
+        /// </summary>
+        /// <param name="token_list">The flat token list.</param>
+        /// <param name="isDebugTransform">debug in progress ?</param>
+        /// <returns></returns>
+        public static List<Block> Lexer(List<Token> token_list, bool isDebugTransform = false)
         {
             if (isDebugTransform) Console.WriteLine("Lexing..");
 
@@ -199,7 +204,7 @@ namespace Urb
             return _tokenTree;
         }
 
-        private string ExpressionToCSharp(List<Functional> functions, bool isDebugTransform = false)
+        private static string ExpressionToCSharp(List<Functional> functions, bool isDebugTransform = false)
         {
             foreach (var function in functions)
             {
@@ -232,7 +237,7 @@ namespace Urb
         }
 
         private static List<string> references = new List<string>();
-        private void TransformTokens(Token[] tokens, List<Token> acc, bool isDebugTransform)
+        private static void TransformTokens(Token[] tokens, List<Token> acc, bool isDebugTransform)
         {
             if(isDebugTransform)
             _print("\nBuilding expressions from {0} tokens...\n", tokens.Length);
@@ -250,13 +255,11 @@ namespace Urb
             // Here we have a full parsed tree ! //
         }
 
-        private int _open = 0;
-        private int _close = 0;
-        private bool _nextExpressionQuoted = false;
-        private bool _nextAtomQuoted = false;
-        private List<Block> _tokenTree = new List<Block>();
+        private static int _open = 0;
+        private static int _close = 0;
+        private static List<Block> _tokenTree = new List<Block>();
 
-        private Block BuildBlock(Token[] tokens, int index, bool isDebugTransform)
+        private static Block BuildBlock(Token[] tokens, int index, bool isDebugTransform)
         {
             var acc = new List<object>();
             var i = index;
@@ -270,8 +273,7 @@ namespace Urb
                         if(isDebugTransform) _print(" )");
                         //_print(" end#{0} \n", _transformerIndex);
                         _transformerIndex = i + 1;
-                        var closedE = new Block(acc.ToArray(), _nextExpressionQuoted);
-                        _nextExpressionQuoted = false;
+                        var closedE = new Block(acc.ToArray());
                         return closedE;
 
                     case "(":
@@ -318,7 +320,7 @@ namespace Urb
 
         #region Macro Expander
 
-        private List<Block> MacroExpand(List<Block> blocks)
+        private static List<Block> MacroExpand(List<Block> blocks)
         {
             /******************************************
 			 * 									      *
@@ -332,8 +334,38 @@ namespace Urb
              * expanding-time, only interpreter-level *
              * implemented functions can be used.     *
 			 * 									   	  *
+             * - Macros components:                   *
+             * . Quote                                *
+             * . Unquote                              *
+             * . Defined Macros					      *		   	  
+             * 									   	  *
 			 ******************************************/
-            return blocks;
+            var acc = new List<Block>();
+            foreach(var block in blocks)
+            {
+                var _block = new List<object>();
+                var i = 0;
+                while( i < block.elements.Count)
+                {
+                    var v = (block.elements[i] as Token).Name;
+                    switch (v)
+                    {
+                        case "quote":
+                            var element = block.elements[i + 1];
+                            var q = new Quote(element);
+                            i += 2;
+                            _block.Add(q);
+                            break;
+                        case "unquote": break;
+                        default:
+                            _block.Add(block.elements[i]);
+                            i++;
+                            break;
+                    }
+                }
+                acc.Add(new Block(_block.ToArray()));
+            }
+            return acc;
         }
 
         #endregion
@@ -435,7 +467,7 @@ namespace Urb
             }
         }
 
-        private List<Functional> TokenTreeToExpressions(List<Block> tree)
+        private static List<Functional> TokenTreeToExpressions(List<Block> tree)
         {
             /******************************************
 			 * 									      *
@@ -453,7 +485,7 @@ namespace Urb
             return result;
         }
 
-        public List<Functional> BuildFunctionalTree
+        public static List<Functional> BuildFunctionalTree
         (string source, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
             _print(_nTimes("_", 80));
@@ -473,7 +505,7 @@ namespace Urb
             return csharp_source;
         }
 
-        private int _transformerIndex = 0;
+        private static int _transformerIndex = 0;
 
         public abstract class Functional
         {
@@ -482,8 +514,9 @@ namespace Urb
             {
                 args = _args;
             }
-            public virtual object Eval(object[] args, Dictionary<string, object> env)
+            public virtual object Eval(Dictionary<string, object> env)
             {
+                _print("Not yet overrided Evaluation function.");
                 return null;
             }
             public abstract string CompileToCSharp();
@@ -494,6 +527,16 @@ namespace Urb
             public object head;
             public object[] rest;
             public List<object> elements;
+            public List<Block> asBlocks
+            {
+                get
+                {
+                    var blocks = new List<Block>();
+                    foreach (var element in elements)
+                        blocks.Add(element as Block);
+                    return blocks;
+                }
+            }
             public object[] evaluatedRest
             {
                 get
@@ -506,6 +549,10 @@ namespace Urb
                         {
                             var e = _buildAtom((Token)element);
                             acc.Add(e);
+                        }
+                        else if (element.GetType() == typeof(Quote))
+                        {
+                            acc.Add(element);
                         }
                         else if (element.GetType() == typeof(Block))
                         {
@@ -599,6 +646,7 @@ namespace Urb
             {"<=", typeof(LesserEqualOperatorForm)},
             {">=", typeof(BiggerEqualOperatorForm)},
             {"jump", typeof(JumpDirectiveForm)},
+            {"compile", typeof(CompileDirectiveForm)}
             };
 
         private class RequireForm : Functional
@@ -1115,7 +1163,7 @@ namespace Urb
         }
 
         #endregion
-
+        
         private class JumpDirectiveForm : Functional
         {
             public JumpDirectiveForm(object[] args) : base(args) { }
@@ -1124,7 +1172,27 @@ namespace Urb
                 return String.Format("goto {0};", (Atom)args[0]);
             }
         }
+        
+        private class CompileDirectiveForm : Functional
+        {
+            public CompileDirectiveForm(object[] args) : base(args){}
 
+            public override object Eval(Dictionary<string, object> env = null)
+            {
+                var body = ((args[0] as Quote).value as Block).asBlocks;
+
+                var asm = Compile(body);
+                Load(asm);
+
+                return asm;
+            }
+
+            public override string CompileToCSharp()
+            {
+                // ignore ? //
+                return null;
+            }
+        }
         #endregion
 
         #region Interpreter
@@ -1182,10 +1250,7 @@ namespace Urb
         public class Value : Evaluation { public Value(object value) : base(value) { } }
         public class Quote : Evaluation {
             public Quote(List<Block> block) { value = block; }
-            public Quote(object value) : base(value)
-            {
-
-            }
+            public Quote(object value) : base(value){        }
             public override string ToString()
             {
                 if(value.GetType() == typeof(List<Block>))
@@ -1194,7 +1259,7 @@ namespace Urb
                     foreach(var block in (List<Block>)value)
                     {
                         acc.Append(
-                            string.Format("[ {0} ]\n", block.ToString()));
+                            string.Format("[Quote {0} ]\n", block.ToString()));
                     }
                     return acc.ToString();
                 }
@@ -1229,7 +1294,18 @@ namespace Urb
 
         #endregion
 
-        public Evaluation Eval(List<Token> tokens)
+        public static Evaluation Eval(List<Block> blocks)
+        {
+            var expansion = MacroExpand(blocks);
+            var expressions = TokenTreeToExpressions(expansion);
+            foreach(var function in expressions)
+            {
+                function.Eval(environment);
+            }
+            return null;
+        }
+
+        public static Evaluation Eval(List<Token> tokens)
         {
             // here is what it will be //
             switch (tokens.Count)
@@ -1237,64 +1313,67 @@ namespace Urb
                 case 0: return new Nil(); // Nil? //
                 case 1: return new Value(_buildAtom(tokens[0]).value);
                 default:
-                    // more than one is sign of block or expression //
+                    // more than one is sign of block or expression    //
                     var _tree = Lexer(tokens);
+                    if (_tree.Count == 0) return new Nil();
+
+                    // Is a Quoted Value/Expression ?                  //
                     if (tokens[0].Name == "quote")
                     {
                         if (_tree.Count == 0 && tokens.Count == 2) return new Quote(tokens[1].Value);
                         if (_tree.Count == 1 && tokens.Count > 2)  return new Quote(_tree);
                     }
-                    if (_tree.Count == 0)                          return new Nil();
-                    /*************************
-                     *                       *
-                     * Compiling things here *
-                     *                       *
-                     *************************/
-                    var expansion = MacroExpand(_tree);
-                    var expressions = TokenTreeToExpressions(expansion);
-                    var csharp = ExpressionToCSharp(expressions);
-                    var asm = _compile_csharp_source(csharp, "eval.dll", isInMemory: true);
-                    
-                    // get things here and invoke or return something. //
-
-                    return null;
+                    // Eval an expression :                            //
+                    var result = Eval(_tree);
+                    return result;
                     
             }
         }
-      /************************************************************************ 
-       * 
-       * :: RULES :: 
-       * 
-       * 1. create new statement -> environment static function.
-       * 2. create new function -> environment partial static class.
-       * 3. create new class -> into our namespace (if not using).
-       * 4. create new namespace -> assign as current namespace.
-       * 
-       * 
-       * Actually, we can just modify the functional tree,
-       * and then re-compile the whole thing. So we can 
-       * have more control on this by:
-       * 
-       * 0. Improve references to manage lib/ns.
-       * 1. Improve class to manage its functions/vars.
-       * 2. Improve function to manage:
-       *      - its local variables.
-       *      - its statements.
-       *      - its expression.
-       *      so we can trace back when needed.
-       *
-       *  :: Normal compiling process ::
-       *  [ Source >> Reader >> Lexer >> TokensToExpression >> Expressions ]
-       *  
-       *  :: Compiling during evaluation ::
-       *  [ Reader -> Tokens -> Lexer -> Expressor -> Compile -> Eval/invoke ]
-       *  
-       *  if we take the blackbox approach then throw anything at CSharp compiler,
-       *  and wait for returning type to know anything.
-       *  
-       ***********************************************************************/
-        public void ReplSession()
+        /************************************************************************ 
+         * 
+         * :: RULES :: 
+         * 
+         * 1. create new statement -> environment static function.
+         * 2. create new function -> environment partial static class.
+         * 3. create new class -> into our namespace (if not using).
+         * 4. create new namespace -> assign as current namespace.
+         * 
+         * 
+         * Actually, we can just modify the functional tree,
+         * and then re-compile the whole thing. So we can 
+         * have more control on this by:
+         * 
+         * 0. Improve references to manage lib/ns.
+         * 1. Improve class to manage its functions/vars.
+         * 2. Improve function to manage:
+         *      - its local variables.
+         *      - its statements.
+         *      - its expression.
+         *      so we can trace back when needed.
+         *
+         *  :: Normal compiling process ::
+         *  [ Source >> Reader >> Lexer >> TokensToExpression >> Expressions ]
+         *  
+         *  :: Compiling during evaluation ::
+         *  [ Reader -> Tokens -> Lexer -> Expressor -> Compile -> Eval/invoke ]
+         *  
+         *  if we take the blackbox approach then throw anything at CSharp compiler,
+         *  and wait for returning type to know anything.
+         *  
+         ***********************************************************************/
+        public static Dictionary<string, object> environment =
+            new Dictionary<string, object>();
+
+        public static void ReplTest(string source)
         {
+            var _tokens = Reader(source);
+            var result = Eval(_tokens);
+            _print("=> {0}", result);
+        }
+
+        public static void ReplSession()
+        {
+            environment = new Dictionary<string, object>();
             while (true)
             {
                 _print("> ", null);
@@ -1312,7 +1391,7 @@ namespace Urb
         
         #region Viewers
 
-        public void Traverse(List<Functional> tree)
+        public static void Traverse(List<Functional> tree)
         {
             _print(_nTimes("_", 80));
             _print("* Evaluating tree.... *");
@@ -1322,7 +1401,7 @@ namespace Urb
             }
         }
 
-        public string Traverse(Functional function)
+        public static string Traverse(Functional function)
         {
             var acc = new StringBuilder();
             var args = new StringBuilder();
@@ -1343,7 +1422,7 @@ namespace Urb
             return acc.ToString();
         }
 
-        public void ReplTest(string source)
+        public static void ViewTree(string source)
         {
             Traverse(BuildFunctionalTree(source));
         }
@@ -1365,6 +1444,20 @@ namespace Urb
 		 * 
 		 *************************************************/
 
+        public static void Load(Assembly asm)
+        {
+            AppDomain.CurrentDomain.Load(asm.GetName());
+        }
+
+        public static Assembly Compile(List<Block> blocks)
+        {
+            var expansion = MacroExpand(blocks);
+            var expressions = TokenTreeToExpressions(expansion);
+            var csharp = ExpressionToCSharp(expressions);
+            var asm = _compile_csharp_source(csharp, "eval.dll", isInMemory: true);
+            return asm;
+        }
+
         public void Compile(string urb_source, string fileName, bool isExe = false, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
             _reset_state();
@@ -1372,7 +1465,7 @@ namespace Urb
             _compile_csharp_source(_source, fileName, isExe);
         }
 
-        private Assembly _compile_csharp_source(string source, string fileName, bool isExe = false, bool isInMemory = false)
+        private static Assembly _compile_csharp_source(string source, string fileName, bool isExe = false, bool isInMemory = false)
         {
             var compiler_parameter = new CompilerParameters();
             compiler_parameter.GenerateExecutable = isExe;
@@ -1423,6 +1516,7 @@ namespace Urb
             _token_array = null;
             _token_index = -1;
             _transformerIndex = -1;
+            environment = new Dictionary<string, object>();
         }
 
         #endregion
