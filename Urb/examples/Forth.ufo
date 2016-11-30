@@ -8,73 +8,76 @@
 # when statement is evaluated post-fix order.		 #
 #													 #
 ######################################################
-(def (square -> x)
-	 (int 	 -> int)
-	 (progn
-	 	(return (* x x))))
+: ( square -> x ) ( x x * ) .
+12 square
 
-(square 12)
 
 ###################
 #				  #
 # @ - uneval mode #
 # ! - eval mode   #
+# ' - quote       #
 #				  #
 ###################
-(map square @(12 13))
-(reduce + @(1 2 3))
+( 12 13 )         ;; list data 
+(1 2 3) '+ reduce ;; reduce a list with an operator
 
-(map using @(System System.IO))
+(System System.IO) 'using map
 
-(namespace Urb)
+Urb namespace
 
-(class MainClass @(:partial :static :public) (progn)) 
+MainClass (:partial :static :public) class 
 
-(set listStack @(:public :static) (new Stack<List<object>>))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                        ;;
+;; [] is to force argument to function,   ;;
+;; by adding new stack to next function.  ;;
+;;                                        ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+listStack (:public :static) [Stack<List<object>> new] set
+
 
 ###########################################
 #										  #
 # better style and better at structure.   #
 # we need cleaner code, not shorter mess. #
+#                                         #
+# duck typing analyzer ?                  #
 #										  #
 ###########################################
-(def (sum -> a b c) 
-	 (int -> int int int)
-	 (:static :private)
-	 (progn
-	 	(return 
-	 		(+ a b c)))) 
 
+: (sum -> a b c) :static :private (
+    (a b c) '+ reduce
+) .
 
-##########################################
-#										 #
-# post-fix lisp seem harder to forward.  #
-# also harder to read and ordering.		 #
-#										 #
-# but learning to take use of stack is   #
-# a very great chance for compiling.     #
-#										 #
-##########################################
-(def (static_method -> _)
-	 (void 			-> _)
-	 (:static :private)
-	 (progn
-	 	(Console.WriteLine "This's static method")))
+: (static_method) :static :private (
+    [ "This's static method" Console.WriteLine ]
+) . 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                      ;;
+;; expressive primitive types:          ;;
+;; int, float, string, symbol, literal. ;;
+;;                                      ;;
+;; reference types = class instances.   ;;
+;;                                      ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+: (static_method_2) :private (
+    [ 1 2 3 "{1} {2} {3}" Console.WriteLine ]
+) . 
 
-(def (set_position -> x y z)
-     (void         -> float float float)
-     (:public)
-	 (progn
- 		####################################
-	    # 								   #
-	    # '=' assignment is different from #
-	    # 'set' because set work outside   # 
-	    # method, when '=' is inside.	   #
-	    #								   #
-	    ####################################
-	  	(= transform.position 
-		    (new Vector3 
-		    (+ transform.position.x x)
-		    (+ transform.position.y y)
-	 	    (+ transform.position.z z)))))
+;; label things to shorten code.
+
+: (set_position -> x y z) :public (
+    transform.position p label
+        p.x x +
+        p.y y +
+        p.z z +
+        Vector3 new p =
+    p end
+) .
+
+;; end command to check ending of each name as segment key.
+
+MainClass end

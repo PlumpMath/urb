@@ -23,10 +23,10 @@ namespace Urb
             else
             {
                 // minimal test.
-                ULisp.ReplTest(@"
-                    ;; as quote test
-                    (compile @((require System)))
-                ");
+                //ULisp.ReplTest(@"
+                //    ;; as quote test
+                //    ;; (compile @((require System)))
+                //");
 
                 //source = File.ReadAllText("../../examples/Lisp.ul");
 

@@ -5,6 +5,8 @@ using System.Reflection;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Linq.Expressions;
+
 namespace Urb
 {
     public class ULisp
@@ -1079,8 +1081,50 @@ namespace Urb
             {
                 return OperatorTree("+", args);
             }
+            public override object Eval(Dictionary<string, object> env)
+            {
+                return base.Eval(env);
+            }
         }
 
+        // need a type analyzing... //
+        private static Type Analyze(Functional f)
+        {
+            return typeof(object);
+        }
+
+        enum Operator
+        {
+            Add, Sub, Div, Mul,
+            AddSelf, SubSelf, DivSelf, MulSelf
+        }
+
+        static T BuildOperator<T>(T a, T b, Operator op)
+        {
+            //TODO: re-use delegate!
+            // declare the parameters
+            ParameterExpression paramA = Expression.Parameter(typeof(T), "a"),
+                paramB = Expression.Parameter(typeof(T), "b");
+            // add the parameters together
+            BinaryExpression body;
+            switch (op)
+            {
+                case Operator.Add: body = Expression.Add(paramA, paramB); break;
+                case Operator.Sub: body = Expression.Subtract(paramA, paramB); break;
+                case Operator.Div: body = Expression.Divide(paramA, paramB); break;
+                case Operator.Mul: body = Expression.Multiply(paramA, paramB); break;
+                case Operator.AddSelf: body = Expression.AddAssign(paramA, paramB); break;
+                case Operator.SubSelf: body = Expression.SubtractAssign(paramA, paramB); break;
+                case Operator.MulSelf: body = Expression.MultiplyAssign(paramA, paramB); break;
+                case Operator.DivSelf: body = Expression.DivideAssign(paramA, paramB); break;
+                default:  throw new NotImplementedException();
+            } 
+            // compile it
+            Func<T, T, T> f = Expression.Lambda<Func<T, T, T>>(body, paramA, paramB).Compile();
+            // call it
+            return f(a, b);
+        }
+      
         private class DivideSelfOperatorForm : Functional
         {
             public DivideSelfOperatorForm(object[] args) : base(args) { }
