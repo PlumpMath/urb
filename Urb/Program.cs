@@ -22,6 +22,16 @@ namespace Urb
             // Test Source:
             else
             {
+                var ufo = new UForth();
+                while (true)
+                {
+                    Console.Write("> ");
+                    var input = Console.ReadLine();
+                    ufo.Repl(input);
+
+                    Console.WriteLine();
+                    Console.WriteLine(UForth.nTimes("_", 80));
+                }
                 // minimal test.
                 //ULisp.ReplTest(@"
                 //    ;; as quote test
@@ -35,7 +45,7 @@ namespace Urb
                 //uLisp.Compile(source, "demo.dll", false, true, true);
 
                 // it's not ready yet.
-                ULisp.ReplSession();
+                //ULisp.ReplSession();
             }
             // wait for prompt.
             Console.ReadLine();

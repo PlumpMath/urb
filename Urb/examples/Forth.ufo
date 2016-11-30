@@ -2,13 +2,8 @@
 #													 #
 #    :: ufo - a stack-based lisp language ::         #
 #													 #
-# special is like dig a hole to wait for arguments	 #
-# then execute when it has enough.					 #
-# special form can goes for special hole			 #
-# when statement is evaluated post-fix order.		 #
-#													 #
 ######################################################
-: ( square -> x ) ( x x * ) .
+: (square -> x) ( x x * ) .
 12 square
 
 
@@ -26,7 +21,7 @@
 
 Urb namespace
 
-MainClass (:partial :static :public) class 
+MainClass (partial static public) class 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                        ;;
@@ -35,7 +30,7 @@ MainClass (:partial :static :public) class
 ;;                                        ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-listStack (:public :static) [Stack<List<object>> new] set
+MainClass.listStack member
 
 
 ###########################################
@@ -47,11 +42,11 @@ listStack (:public :static) [Stack<List<object>> new] set
 #										  #
 ###########################################
 
-: (sum -> a b c) :static :private (
+: (sum -> a b c) (
     (a b c) '+ reduce
 ) .
 
-: (static_method) :static :private (
+: (static_method) (
     [ "This's static method" Console.WriteLine ]
 ) . 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
