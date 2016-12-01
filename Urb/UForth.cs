@@ -490,7 +490,7 @@ namespace Urb
             new Dictionary<string, Function>()
             {
                 // creation
-                {"defun", new Defun(new Type[] { typeof(Token), typeof(List), typeof(List)})},
+                {"def", new Defun(new Type[] { typeof(Token), typeof(List), typeof(List)})},
                 {"var", new Var(new Type[] { typeof(Token), typeof(object)})},
 
                 // operators
