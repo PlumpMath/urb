@@ -9,10 +9,10 @@ namespace Urb
     {
         public static void Main(string[] args)
         {
-            var source = "";
-            var uLisp = new ULisp();
             if (args.Length > 0)
             {
+                var source = "";
+                var uLisp = new ULisp();
                 var name = "compiled_ulisp.dll";
                 if (args.Length == 2) name = args[0];
                 source = File.ReadAllText(args[args.Length - 1]);
@@ -32,6 +32,8 @@ namespace Urb
                     Console.WriteLine();
                     Console.WriteLine(UForth.nTimes("_", 80));
                 }
+
+
                 // minimal test.
                 //ULisp.ReplTest(@"
                 //    ;; as quote test

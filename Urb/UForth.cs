@@ -14,7 +14,7 @@ namespace Urb
 
         public UForth()
         {
-            _print(" uForth :: a minimal lisp family language compiler ");
+            _print(" bailey :: a minimal forth family language ");
         }
   
         #endregion
@@ -146,12 +146,15 @@ namespace Urb
 
         private static void _print(string line)
         {
-            Console.WriteLine(line);
+            _print(line + "\n", new object[] { });
         }
 
         private static void _print(string line, params object[] args)
         {
+            var backup = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write(line, args);
+            Console.ForegroundColor = backup;
         }
 
         #endregion
@@ -206,7 +209,7 @@ namespace Urb
 
                 for(int i = Signature.Length-1; i > 0 ; i--)
                 {
-                    isOk = Signature[i] == args[i].GetType();
+                    isOk = Signature[i] == args[i].GetType() || Signature[i] == typeof(object);
                     if (!isOk) return isOk;
                 }
                 return isOk;
@@ -309,12 +312,47 @@ namespace Urb
 
         public class TypeQuestion : Function
         {
-            public TypeQuestion(Type[] signature) : base(signature)   {  }
+            public TypeQuestion(Type[] signature) : base(signature) { }
 
             public override object Eval(Stack<object> frame)
             {
                 var name = frame.Pop().GetType().Name;
                 return name;
+            }
+        }
+
+        public class Var : Function
+        {
+            public Var(Type[] signature) : base(signature)
+            {
+            }
+
+            public override object Eval(Stack<object> frame)
+            {
+                if (base.TypeCheck(frame))
+                {
+                    // 1 a var
+                    var name = (frame.Pop() as Token).Value;
+                    var value = frame.Pop();
+                    userVars.Add(name, value);
+                    _print("defined variable {0}.\n", name);
+                    return null;
+                }
+                throw new Exception("bad typing.");
+            }
+        }
+
+        public class Print : Function
+        {
+            public Print(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                var backup = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(frame.Pop().ToString());
+                Console.ForegroundColor = backup;
+                return null;
             }
         }
 
@@ -404,21 +442,25 @@ namespace Urb
         public CompilerMode compilerMode = CompilerMode.Awake; // by default. //
         public Stack<object> evaluationStack = new Stack<object>();
         public Stack<Stack<object>> Frames = new Stack<Stack<object>>();
-        public Dictionary<string, object> userVars = new Dictionary<string, object>();
-        public Dictionary<string, Function> userFunctions = new Dictionary<string, Function>();
+        public static Dictionary<string, object> userVars = new Dictionary<string, object>();
+        public static Dictionary<string, Function> userFunctions = new Dictionary<string, Function>();
         public Dictionary<string, Function> functionMap =
             new Dictionary<string, Function>()
             {
-                
+                // creation
+                {"def", null },
+                {"var", new Var(new Type[] { typeof(Token), typeof(object)}) },
+
                 // operators
                 { "add", new Add(new Type[] { typeof(object), typeof(object)})},
                 { "sub", new Sub(new Type[] { typeof(object), typeof(object)})},
                 { "div", new Div(new Type[] { typeof(object), typeof(object)})},
                 { "mul", new Mul(new Type[] { typeof(object), typeof(object)})},
                 
-                // typing
+                // helpers
                 { "type?", new TypeQuestion(new Type[] {typeof(object)})},
-                
+                { "print", new Print(new Type[] {typeof(object) })},
+
                 // destructor
                 { "flush", new Flush(null) },
                 { "drop", new Drop(null) },
@@ -496,17 +538,15 @@ namespace Urb
                 case "literal":
                     if (functionMap.ContainsKey(token.Value))
                     {
-                        switch (compilerMode)
-                        {
-                            case CompilerMode.Awake: // eval.
-                                var result = functionMap[token.Value].Eval(evaluationStack);
-                                if(result!=null) evaluationStack.Push(result); // push result >> stack.
-                                break;
-                            case CompilerMode.Sleep: // store!
-                                evaluationStack.Push(token);
-                                break;
-                            default: break;
-                        }
+                        ApplyFunction(token, functionMap, evaluationStack);
+                    }
+                    else if (userVars.ContainsKey(token.Value))
+                    {
+                        evaluationStack.Push(userVars[token.Value]);
+                    }
+                    else if (userFunctions.ContainsKey(token.Value))
+                    {
+                        ApplyFunction(token, userFunctions, evaluationStack);
                     }
                     // to stack for now. //
                     else evaluationStack.Push(token);
@@ -515,6 +555,21 @@ namespace Urb
                 default:
                     evaluationStack.Push(BuildValueType(token));
                     break;
+            }
+        }
+
+        public void ApplyFunction(Token token, Dictionary<string, Function> func, Stack<object> frame)
+        {
+            switch (compilerMode)
+            {
+                case CompilerMode.Awake: // eval.
+                    var result = func[token.Value].Eval(evaluationStack);
+                    if (result != null) frame.Push(result); // push result >> stack.
+                    break;
+                case CompilerMode.Sleep: // store!
+                    frame.Push(token);
+                    break;
+                default: break;
             }
         }
 
