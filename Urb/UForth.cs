@@ -156,60 +156,35 @@ namespace Urb
 
         #endregion
 
-        #region Block
-        public class Block
-        {
-            public object head;
-            public object[] rest;
-            public List<object> elements;
-            public List<Block> asBlocks
+        #region List
+
+        public class List: List<object> {
+
+            public List(object[] collection, bool isReversed = false)
             {
-                get
-                {
-                    var blocks = new List<Block>();
-                    foreach (var element in elements)
-                        blocks.Add(element as Block);
-                    return blocks;
-                }
+                // reverse mode.
+                if (isReversed) this.AddRange(collection);
+                else // reserved mode.
+                for (int i = collection.Length - 1; i > -1; i--)
+                    this.Add(collection[i]);
             }
 
-            public Block(object[] args, bool isQuoted = false)
+            public List(IEnumerable<object> collection):base(collection)
             {
-                // we keep the original. //
-                elements = new List<object>(args);
-                if (args.Length != 0)
-                {
-                    if (!isQuoted)
-                    {
-                        rest = new object[args.Length - 1];
-                        head = args[0];
-                        // 1+ copying... //
-                        for (int i = 1; i < args.Length; i++)
-                        {
-                            rest[i - 1] = args[i];
-                        }
-                        // done ! //
-                    }
-                    else
-                    {
-                        rest = new object[args.Length];
-                        head = "quote";
-                        // exactly copying... //
-                        for (int i = 0; i < args.Length; i++)
-                        {
-                            rest[i] = args[i];
-                        }
-                    }
-                }
             }
 
             public override string ToString()
             {
-                var acc = "";
-                foreach (var obj in rest) acc += obj.ToString() + " ";
-                return string.Format("({0} {1})", head.ToString(), acc);
+                var acc = new StringBuilder();
+                acc.Append("[");
+                foreach (var e in this)
+                {
+                    acc.Append(string.Format(
+                        "{0} ", e.ToString()));
+                }
+                acc.Append("]");
+                return acc.ToString();
             }
-
         }
 
         #endregion
@@ -464,7 +439,7 @@ namespace Urb
                             break;
                         case ")":
                             /// acc all current stack frame into a list.
-                            var lst = new List<object>(evaluationStack.ToArray());
+                            var lst = new List(evaluationStack.ToArray());
                             evaluationStack = Frames.Pop();
                             evaluationStack.Push(lst);
                             compilerMode = CompilerMode.Awake;
