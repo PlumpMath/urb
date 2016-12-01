@@ -22,16 +22,16 @@ namespace Urb
             // Test Source:
             else
             {
-                var ufo = new UForth();
-                while (true)
-                {
-                    Console.Write("> ");
-                    var input = Console.ReadLine();
-                    ufo.Repl(input);
+                //var ufo = new UForth();
+                //while (true)
+                //{
+                //    Console.Write("> ");
+                //    var input = Console.ReadLine();
+                //    ufo.Repl(input);
 
-                    Console.WriteLine();
-                    Console.WriteLine(UForth.nTimes("_", 80));
-                }
+                //    Console.WriteLine();
+                //    Console.WriteLine(UForth.nTimes("_", 80));
+                //}
 
 
                 // minimal test.
@@ -39,11 +39,11 @@ namespace Urb
                 //    ;; as quote test
                 //    ;; (compile @((require System)))
                 //");
-
-                //source = File.ReadAllText("../../examples/Lisp.ul");
+                var uLisp = new ULisp();
+                var source = File.ReadAllText("../../examples/Lisp.ul");
 
                 // Compiling..
-                //uLisp.Compile(source, "demo.dll", isDebugTransform: true);
+                uLisp.Compile(source, "demo.dll", isDebugTransform: true);
                 //uLisp.Compile(source, "demo.dll", false, true, true);
 
                 // it's not ready yet.
