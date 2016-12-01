@@ -338,7 +338,18 @@ namespace Urb
                 frame.Pop();
                 return null;
             }
-        }
+        };
+
+        public class Dup : Function
+        {
+            public Dup(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                var o = frame.Peek();
+                return o;
+            }
+        };
 
         public class Pop : Function
         {
@@ -411,6 +422,7 @@ namespace Urb
                 // destructor
                 { "flush", new Flush(null) },
                 { "drop", new Drop(null) },
+                { "dup", new Dup(null) },
                 { "pop", new Pop(null) },
 
                 // interpreter functions
@@ -420,6 +432,31 @@ namespace Urb
         #endregion
 
         #region Repl
+
+        public void NewStackFrame()
+        {
+            /// create new stack frame.
+            Frames.Push(evaluationStack);
+            evaluationStack = new Stack<object>();
+        }
+
+        public void CloseStackFrameToList()
+        {
+            /// acc all current stack frame into a list.
+            var lst = new List(evaluationStack.ToArray());
+            evaluationStack = Frames.Pop();
+            evaluationStack.Push(lst);
+        }
+
+        public void CloseStackFrameToStack()
+        {
+            var store = Frames.Pop();
+            foreach(var o in evaluationStack)
+            {
+                store.Push(o);
+            }
+            evaluationStack = store;
+        }
 
         private void EatToken(Token token)
         {
@@ -441,17 +478,15 @@ namespace Urb
                     {
                         case "(":
                             compilerMode = CompilerMode.Sleep;
-                            /// create new stack frame.
-                            Frames.Push(evaluationStack);
-                            evaluationStack = new Stack<object>();
+                            NewStackFrame();
                             break;
                         case ")":
-                            /// acc all current stack frame into a list.
-                            var lst = new List(evaluationStack.ToArray());
-                            evaluationStack = Frames.Pop();
-                            evaluationStack.Push(lst);
                             compilerMode = CompilerMode.Awake;
+                            CloseStackFrameToList();
                             break;
+
+                        case "[": NewStackFrame(); break;
+                        case "]": CloseStackFrameToStack(); break;
                         default: /// ignoring.
                             break;
                     }
