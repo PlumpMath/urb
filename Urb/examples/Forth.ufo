@@ -4,7 +4,7 @@
 ;;													;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-: (square -> x) ( x x * ) .
+def (square -> x) ( x x * ) .
 12 square
 
 ;;;;;;;;;;;;;;;;;;;;;
@@ -34,13 +34,15 @@ MainClass (partial static public) class
 
 MainClass.listStack member
 
-: (sum -> a b c) (
+def (sum -> a b c) (
     (a b c) '+ reduce
-) .
+    ) 
+end
 
-: (static_method) (
-    [ "This's static method" Console.WriteLine ]
-) . 
+def (static_method) (
+        [ "This's static method" Console.WriteLine ]
+    ) 
+end 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                      ;;

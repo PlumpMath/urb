@@ -10,37 +10,13 @@ namespace Urb
 {
     public class UForth
     {
-        #region Collections
-        // function
-        private Dictionary<string, Action<object>> functionMap =
-            new Dictionary<string, Action<object>>();
-        // codeblock
-        private Dictionary<string, Action> codeblockMap =
-            new Dictionary<string, Action>();
-        #endregion
-
         #region Init 
 
         public UForth()
         {
             _print(" uForth :: a minimal lisp family language compiler ");
         }
-        public class GenericClass<T>
-        {
-            public GenericClass(T type) { }
-        }
-        // Create new codeblock.
-        public void NewCodeBlock(string name, Action codeBlock)
-        {
-            codeblockMap.Add(name, codeBlock);
-        }
-
-        // Create new function.
-        public void NewFunction(string name, Action<object> codeBlock)
-        {
-            functionMap.Add(name, codeBlock);
-        }
-
+  
         #endregion
 
         #region Syntax Table
@@ -56,6 +32,8 @@ namespace Urb
             @"(?<uneval_mode>\@)|" +
             // eval mode
             @"(?<eval_mode>\!)|" +
+            // quote
+            @"(?<quote>\')|" +
             // forward
             @"(?<forward>-\>)|" +
             // comma, () and []
@@ -361,9 +339,9 @@ namespace Urb
             }
         }
 
-        public class FlushStack : Function
+        public class Flush : Function
         {
-            public FlushStack(Type[] signature) : base(signature) {}
+            public Flush(Type[] signature) : base(signature) { }
 
             public override object Eval(Stack<object> frame)
             {
@@ -372,9 +350,30 @@ namespace Urb
             }
         }
 
-        public class Quit : Function
+        public class Drop : Function
         {
-            public Quit(Type[] signature) : base(signature){}
+            public Drop(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                frame.Pop();
+                return null;
+            }
+        }
+
+        public class Pop : Function
+        {
+            public Pop(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                return frame.Pop();
+            }
+        }
+
+        public class Exit : Function
+        {
+            public Exit(Type[] signature) : base(signature){}
 
             public override object Eval(Stack<object> frame)
             {
@@ -414,17 +413,29 @@ namespace Urb
         }
         public CompilerMode compilerMode = CompilerMode.Awake; // by default. //
         public Stack<object> evaluationStack = new Stack<object>();
-        public Stack<object> currentFrame = new Stack<object>();
-        public Dictionary<string, Function> FunctionMap =
+        public Stack<Stack<object>> Frames = new Stack<Stack<object>>();
+        public Dictionary<string, object> userVars = new Dictionary<string, object>();
+        public Dictionary<string, Function> userFunctions = new Dictionary<string, Function>();
+        public Dictionary<string, Function> functionMap =
             new Dictionary<string, Function>()
             {
+                
+                // operators
                 { "add", new Add(new Type[] { typeof(object), typeof(object)})},
                 { "sub", new Sub(new Type[] { typeof(object), typeof(object)})},
                 { "div", new Div(new Type[] { typeof(object), typeof(object)})},
                 { "mul", new Mul(new Type[] { typeof(object), typeof(object)})},
+                
+                // typing
                 { "type?", new TypeQuestion(new Type[] {typeof(object)})},
-                { "flush", new FlushStack(null) },
-                { "quit", new Quit(null)}
+                
+                // destructor
+                { "flush", new Flush(null) },
+                { "drop", new Drop(null) },
+                { "pop", new Pop(null) },
+
+                // interpreter functions
+                { "exit", new Exit(null)}
             };
 
         private void EatToken(Token token)
@@ -441,14 +452,36 @@ namespace Urb
                     _print("[compiler] Slept.");
                     break;
 
+                case "separator":
+                    /// () []
+                    switch (token.Value)
+                    {
+                        case "(":
+                            compilerMode = CompilerMode.Sleep;
+                            /// create new stack frame.
+                            Frames.Push(evaluationStack);
+                            evaluationStack = new Stack<object>();
+                            break;
+                        case ")":
+                            /// acc all current stack frame into a list.
+                            var lst = new List<object>(evaluationStack.ToArray());
+                            evaluationStack = Frames.Pop();
+                            evaluationStack.Push(lst);
+                            compilerMode = CompilerMode.Awake;
+                            break;
+                        default: /// ignoring.
+                            break;
+                    }
+                    break;
+
                 //case "operator":
                 case "literal":
-                    if (FunctionMap.ContainsKey(token.Value))
+                    if (functionMap.ContainsKey(token.Value))
                     {
                         switch (compilerMode)
                         {
                             case CompilerMode.Awake: // eval.
-                                var result = FunctionMap[token.Value].Eval(evaluationStack);
+                                var result = functionMap[token.Value].Eval(evaluationStack);
                                 if(result!=null) evaluationStack.Push(result); // push result >> stack.
                                 break;
                             case CompilerMode.Sleep: // store!
