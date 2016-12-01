@@ -16,7 +16,7 @@ namespace Urb
         {
             _print(" bailey :: a minimal forth family language ");
         }
-  
+
         #endregion
 
         #region Syntax Table
@@ -35,7 +35,9 @@ namespace Urb
             // quote
             @"(?<quote>\')|" +
             // forward
-            @"(?<forward>-\>)|" +
+            @"(?<forward>\-\>)|" +
+            // backward
+            @"(?<backward>\<\-)|" +
             // comma, () and []
             @"(?<separator>,|\(|\)|\[|\])|" +
             // string " "
@@ -62,7 +64,7 @@ namespace Urb
             @"(?<boolean_condition>[\|\||\&\&])|" +
 
             // #Comments
-            @"(?<comment>#.*\n)|" +
+            @"(?<comment>;;;.*\n)|" +
 
             // :Symbol
             @"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -161,18 +163,19 @@ namespace Urb
 
         #region List
 
-        public class List: List<object> {
+        public class List : List<object>
+        {
 
             public List(object[] collection, bool isReversed = false)
             {
                 // reverse mode.
                 if (isReversed) this.AddRange(collection);
                 else // reserved mode.
-                for (int i = collection.Length - 1; i > -1; i--)
-                    this.Add(collection[i]);
+                    for (int i = collection.Length - 1; i > -1; i--)
+                        this.Add(collection[i]);
             }
 
-            public List(IEnumerable<object> collection):base(collection)
+            public List(IEnumerable<object> collection) : base(collection)
             {
             }
 
@@ -203,11 +206,13 @@ namespace Urb
             }
             public bool TypeCheck(Stack<object> frame)
             {
+                return true; // fix later.
+                if (frame.Count < Signature.Length) return false;
                 var isOk = false;
                 var args = new object[Signature.Length];
-                frame.CopyTo(args, frame.Count-Signature.Length);
+                frame.CopyTo(args, frame.Count - Signature.Length-1);
 
-                for(int i = Signature.Length-1; i > 0 ; i--)
+                for (int i = Signature.Length - 1; i > 0; i--)
                 {
                     isOk = Signature[i] == args[i].GetType() || Signature[i] == typeof(object);
                     if (!isOk) return isOk;
@@ -321,6 +326,45 @@ namespace Urb
             }
         }
 
+        public class Defun : Function
+        {
+            public string name = string.Empty;
+            public List parameters;
+            public List body;
+
+            public Defun(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                if (base.TypeCheck(frame))
+                {
+                    /// body params name.
+                    body = (frame.Pop() as List);
+                    parameters = (frame.Pop() as List);
+                    var name = (frame.Pop() as Token).Value;
+                    /// override current function.
+                    if (userFunctions.ContainsKey(name)) userFunctions.Remove(name);
+                    userFunctions.Add(name, this);
+                    /// log:
+                    _print("defined function {0}.\n", name);
+                    return null;
+                }
+                throw new NotImplementedException();
+            }
+        }
+
+        public static void CreateVariable(Stack<object> frame)
+        {
+            /// 1 A var.
+            var name = (frame.Pop() as Token).Value;
+            var value = frame.Pop();
+            /// override.
+            if (userVars.ContainsKey(name)) userVars.Remove(name);
+            userVars.Add(name, value);
+            /// log:
+            _print("defined variable {0}.\n", name);
+        }
+
         public class Var : Function
         {
             public Var(Type[] signature) : base(signature)
@@ -329,13 +373,10 @@ namespace Urb
 
             public override object Eval(Stack<object> frame)
             {
+
                 if (base.TypeCheck(frame))
                 {
-                    // 1 a var
-                    var name = (frame.Pop() as Token).Value;
-                    var value = frame.Pop();
-                    userVars.Add(name, value);
-                    _print("defined variable {0}.\n", name);
+                    CreateVariable(frame);
                     return null;
                 }
                 throw new Exception("bad typing.");
@@ -401,7 +442,7 @@ namespace Urb
 
         public class Exit : Function
         {
-            public Exit(Type[] signature) : base(signature){}
+            public Exit(Type[] signature) : base(signature) { }
 
             public override object Eval(Stack<object> frame)
             {
@@ -421,9 +462,10 @@ namespace Urb
                 case "string": return token.Value;
                 case "integer": return Int32.Parse(token.Value);
                 case "double": return double.Parse(token.Value);
-                case "float": return float.Parse(
-                        token.Value.ToString().Substring(0,
-                        token.Value.ToString().Length - 1));
+                case "float":
+                    return float.Parse(
+              token.Value.ToString().Substring(0,
+              token.Value.ToString().Length - 1));
                 case "symbol":
                     return new Atom(token.Name,
                                     token.Value.Substring(1, token.Value.Length - 1));
@@ -443,13 +485,13 @@ namespace Urb
         public Stack<object> evaluationStack = new Stack<object>();
         public Stack<Stack<object>> Frames = new Stack<Stack<object>>();
         public static Dictionary<string, object> userVars = new Dictionary<string, object>();
-        public static Dictionary<string, Function> userFunctions = new Dictionary<string, Function>();
+        public static Dictionary<string, Defun> userFunctions = new Dictionary<string, Defun>();
         public Dictionary<string, Function> functionMap =
             new Dictionary<string, Function>()
             {
                 // creation
-                {"def", null },
-                {"var", new Var(new Type[] { typeof(Token), typeof(object)}) },
+                {"defun", new Defun(new Type[] { typeof(Token), typeof(List), typeof(List)})},
+                {"var", new Var(new Type[] { typeof(Token), typeof(object)})},
 
                 // operators
                 { "add", new Add(new Type[] { typeof(object), typeof(object)})},
@@ -475,6 +517,18 @@ namespace Urb
 
         #region Repl
 
+        #region Stack Manipulators
+
+        public void PrintStack()
+        {
+            Console.Write("[ ");
+            foreach (var e in evaluationStack)
+            {
+                Console.Write("{0} ", e);
+            }
+            Console.Write(" ]");
+        }
+
         public void NewStackFrame()
         {
             /// create new stack frame.
@@ -493,14 +547,16 @@ namespace Urb
         public void CloseStackFrameToStack()
         {
             var store = Frames.Pop();
-            foreach(var o in evaluationStack)
+            foreach (var o in evaluationStack)
             {
                 store.Push(o);
             }
             evaluationStack = store;
         }
 
-        private void EatToken(Token token)
+        #endregion
+
+        private void EatToken(Token token, Dictionary<string, object> env)
         {
             switch (token.Name)
             {
@@ -534,20 +590,24 @@ namespace Urb
                     }
                     break;
 
+                case "backward": functionMap[token.Value].Eval(evaluationStack); break;
+                case "forward": break;
+
                 //case "operator":
                 case "literal":
                     if (functionMap.ContainsKey(token.Value))
                     {
-                        ApplyFunction(token, functionMap, evaluationStack);
-                    }
-                    else if (userVars.ContainsKey(token.Value))
-                    {
-                        evaluationStack.Push(userVars[token.Value]);
+                        ApplyPrimitives(token, env);
                     }
                     else if (userFunctions.ContainsKey(token.Value))
                     {
-                        ApplyFunction(token, userFunctions, evaluationStack);
+                        ApplyUserFunction(token, env);
                     }
+                    else if (env.ContainsKey(token.Value))
+                    {
+                        evaluationStack.Push(env[token.Value]);
+                    }
+                  
                     // to stack for now. //
                     else evaluationStack.Push(token);
                     break;
@@ -558,29 +618,54 @@ namespace Urb
             }
         }
 
-        public void ApplyFunction(Token token, Dictionary<string, Function> func, Stack<object> frame)
+        public void ApplyUserFunction(Token token, Dictionary<string, object> env)
+        {
+            var localVars = new Dictionary<string, object>();
+            var function = userFunctions[token.Value];
+            foreach (Token t in function.parameters)
+            {
+                var parameter = t.Value;
+                localVars.Add(parameter as string, null);
+                localVars[parameter as string] = evaluationStack.Pop();
+            }
+            /// eval body:
+            var body = function.body;
+            /// local + env:
+            var modEnv = userVars;
+            foreach(var keypair in localVars)
+                if (modEnv.ContainsKey(keypair.Key))
+                {
+                    throw new Exception("ambitious variable " + keypair.Key);
+                }
+                else
+                {
+                    modEnv.Add(keypair.Key, keypair.Value);
+                }
+
+            Eval(body, modEnv);
+        }
+
+        public void Eval(List body, Dictionary<string, object> env)
+        {
+            foreach (var o in body)
+            {
+                EatToken(o as Token, env);
+            }
+        }
+
+        public void ApplyPrimitives(Token token, Dictionary<string, object> env)
         {
             switch (compilerMode)
             {
                 case CompilerMode.Awake: // eval.
-                    var result = func[token.Value].Eval(evaluationStack);
-                    if (result != null) frame.Push(result); // push result >> stack.
+                    var result = functionMap[token.Value].Eval(evaluationStack);
+                    if (result != null) evaluationStack.Push(result); // push result >> stack.
                     break;
                 case CompilerMode.Sleep: // store!
-                    frame.Push(token);
+                    evaluationStack.Push(token);
                     break;
                 default: break;
             }
-        }
-
-        public void PrintStack()
-        {
-            Console.Write("[ ");
-            foreach (var e in evaluationStack)
-            {
-                Console.Write("{0} ", e);
-            }
-            Console.Write(" ]");
         }
 
         public void Repl(string source)
@@ -589,7 +674,7 @@ namespace Urb
 
             foreach (var token in tokens)
             {
-                EatToken(token);
+                EatToken(token, userVars);
             }
 
             PrintStack();
