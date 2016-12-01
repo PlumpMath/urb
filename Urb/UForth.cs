@@ -5,6 +5,7 @@ using System.Reflection;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Linq.Expressions;
 namespace Urb
 {
     public class UForth
@@ -71,8 +72,11 @@ namespace Urb
 
             // float 1f 2.0f
             @"(?<float>[-+]?[0-9]*\.?[0-9]+f)|" +
+            // double 1.0 2.0
+            @"(?<double>[-+]?[0-9]*\.[0-9]+)|" +
             // integer 120
             @"(?<integer>[+-]?[0-9]+)|" +
+
             // operators
             @"(?<operator>\+=|\-=|\=|\+|\-|\*|\/|\^)|" +
             // boolean
@@ -88,7 +92,7 @@ namespace Urb
             @"(?<label>[a-zA-Z0-9$_]+\:)|" +
             // Literal   [a-zA-Z0-9\\_\<\>\[\]\-$_.]
             // without [] in its literal rule.
-            @"(?<literal>[a-zA-Z0-9\\_\<\>\-$_.]+)|" +
+            @"(?<literal>[a-zA-Z0-9\\_\<\>\-\?$_.]+)|" +
 
             // the rest.
             @"(?<invalid>[^\s]+)";
@@ -236,7 +240,168 @@ namespace Urb
 
         public abstract class Function
         {
+            public Type[] Signature;
+            public Function(Type[] signature)
+            {
+                Signature = signature;
+            }
+            public bool TypeCheck(Stack<object> frame)
+            {
+                var isOk = false;
+                var args = new object[Signature.Length];
+                frame.CopyTo(args, frame.Count-Signature.Length);
+
+                for(int i = Signature.Length-1; i > 0 ; i--)
+                {
+                    isOk = Signature[i] == args[i].GetType();
+                    if (!isOk) return isOk;
+                }
+                return isOk;
+            }
             public abstract object Eval(Stack<object> frame);
+        }
+
+        enum Operator
+        {
+            Add, Sub, Div, Mul,
+            AddSelf, SubSelf, DivSelf, MulSelf
+        }
+
+        static T BuildOperator<T>(T a, T b, Operator op)
+        {
+            //TODO: re-use delegate!
+            // declare the parameters
+            ParameterExpression paramA = Expression.Parameter(typeof(T), "a"),
+                paramB = Expression.Parameter(typeof(T), "b");
+            // add the parameters together
+            BinaryExpression body;
+            switch (op)
+            {
+                case Operator.Add: body = Expression.Add(paramA, paramB); break;
+                case Operator.Sub: body = Expression.Subtract(paramA, paramB); break;
+                case Operator.Div: body = Expression.Divide(paramA, paramB); break;
+                case Operator.Mul: body = Expression.Multiply(paramA, paramB); break;
+                case Operator.AddSelf: body = Expression.AddAssign(paramA, paramB); break;
+                case Operator.SubSelf: body = Expression.SubtractAssign(paramA, paramB); break;
+                case Operator.MulSelf: body = Expression.MultiplyAssign(paramA, paramB); break;
+                case Operator.DivSelf: body = Expression.DivideAssign(paramA, paramB); break;
+                default: throw new NotImplementedException();
+            }
+            // compile it
+            Func<T, T, T> f = Expression.Lambda<Func<T, T, T>>(body, paramA, paramB).Compile();
+            // call it
+            return f(a, b);
+        }
+
+        private static object ReturnBinary(Operator op, Stack<object> frame)
+        {
+            // a b -> b a
+            var b = frame.Pop();
+            var a = frame.Pop();
+            if (a.GetType() == typeof(int))
+            {
+                return BuildOperator<int>((int)a, (int)b, op);
+            }
+            else if (a.GetType() == typeof(float))
+            {
+                return BuildOperator<float>((float)a, (float)b, op);
+            }
+            else if (a.GetType() == typeof(double))
+            {
+                return BuildOperator<double>((double)a, (double)b, op);
+            }
+            throw new NotImplementedException();
+        }
+
+        public class Add : Function
+        {
+            public Add(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                return ReturnBinary(Operator.Add, frame);
+            }
+        }
+        public class Sub : Function
+        {
+            public Sub(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                return ReturnBinary(Operator.Sub, frame);
+            }
+        }
+        public class Mul : Function
+        {
+            public Mul(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                return ReturnBinary(Operator.Mul, frame);
+            }
+        }
+        public class Div : Function
+        {
+            public Div(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame)
+            {
+                return ReturnBinary(Operator.Div, frame);
+            }
+        }
+
+        public class TypeQuestion : Function
+        {
+            public TypeQuestion(Type[] signature) : base(signature)   {  }
+
+            public override object Eval(Stack<object> frame)
+            {
+                var name = frame.Pop().GetType().Name;
+                return name;
+            }
+        }
+
+        public class FlushStack : Function
+        {
+            public FlushStack(Type[] signature) : base(signature) {}
+
+            public override object Eval(Stack<object> frame)
+            {
+                frame.Clear();
+                return null;
+            }
+        }
+
+        public class Quit : Function
+        {
+            public Quit(Type[] signature) : base(signature){}
+
+            public override object Eval(Stack<object> frame)
+            {
+                Environment.Exit(0);
+                return null;
+            }
+        }
+
+        #endregion
+
+        #region Typing
+
+        public object BuildValueType(Token token)
+        {
+            switch (token.Name)
+            {
+                case "string": return token.Value;
+                case "integer": return Int32.Parse(token.Value);
+                case "double": return double.Parse(token.Value);
+                case "float": return float.Parse(
+                        token.Value.ToString().Substring(0,
+                        token.Value.ToString().Length - 1));
+                case "symbol":
+                    return new Atom(token.Name,
+                                    token.Value.Substring(1, token.Value.Length - 1));
+                default: return new Atom(token.Name, token.Value);
+            }
         }
 
         #endregion
@@ -253,19 +418,38 @@ namespace Urb
         public Dictionary<string, Function> FunctionMap =
             new Dictionary<string, Function>()
             {
+                { "add", new Add(new Type[] { typeof(object), typeof(object)})},
+                { "sub", new Sub(new Type[] { typeof(object), typeof(object)})},
+                { "div", new Div(new Type[] { typeof(object), typeof(object)})},
+                { "mul", new Mul(new Type[] { typeof(object), typeof(object)})},
+                { "type?", new TypeQuestion(new Type[] {typeof(object)})},
+                { "flush", new FlushStack(null) },
+                { "quit", new Quit(null)}
             };
 
         private void EatToken(Token token)
         {
             switch (token.Name)
             {
+                case "eval_mode":
+                    compilerMode = CompilerMode.Awake;
+                    _print("[compiler] Awaken.");
+                    break;
+
+                case "uneval_mode":
+                    compilerMode = CompilerMode.Sleep;
+                    _print("[compiler] Slept.");
+                    break;
+
+                //case "operator":
                 case "literal":
                     if (FunctionMap.ContainsKey(token.Value))
                     {
                         switch (compilerMode)
                         {
-                            case CompilerMode.Awake: // eval. 
-                                FunctionMap[token.Value].Eval(evaluationStack);
+                            case CompilerMode.Awake: // eval.
+                                var result = FunctionMap[token.Value].Eval(evaluationStack);
+                                if(result!=null) evaluationStack.Push(result); // push result >> stack.
                                 break;
                             case CompilerMode.Sleep: // store!
                                 evaluationStack.Push(token);
@@ -276,8 +460,9 @@ namespace Urb
                     // to stack for now. //
                     else evaluationStack.Push(token);
                     break;
+
                 default:
-                    evaluationStack.Push(token.Value);
+                    evaluationStack.Push(BuildValueType(token));
                     break;
             }
         }

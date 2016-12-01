@@ -1,19 +1,21 @@
-﻿######################################################
-#													 #
-#    :: ufo - a stack-based lisp language ::         #
-#													 #
-######################################################
+﻿;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;													;;
+;;    :: ufo - a stack-based lisp language ::       ;;
+;;													;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 : (square -> x) ( x x * ) .
 12 square
 
+;;;;;;;;;;;;;;;;;;;;;
+;;				   ;;
+;; @ - uneval mode ;;
+;; ! - eval mode   ;;
+;; ' - quote       ;;
+;; () - list data  ;;
+;;				   ;;
+;;;;;;;;;;;;;;;;;;;;;
 
-###################
-#				  #
-# @ - uneval mode #
-# ! - eval mode   #
-# ' - quote       #
-#				  #
-###################
 ( 12 13 )         ;; list data 
 (1 2 3) '+ reduce ;; reduce a list with an operator
 
@@ -32,16 +34,6 @@ MainClass (partial static public) class
 
 MainClass.listStack member
 
-
-###########################################
-#										  #
-# better style and better at structure.   #
-# we need cleaner code, not shorter mess. #
-#                                         #
-# duck typing analyzer ?                  #
-#										  #
-###########################################
-
 : (sum -> a b c) (
     (a b c) '+ reduce
 ) .
@@ -49,6 +41,7 @@ MainClass.listStack member
 : (static_method) (
     [ "This's static method" Console.WriteLine ]
 ) . 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                      ;;
 ;; expressive primitive types:          ;;
@@ -57,13 +50,11 @@ MainClass.listStack member
 ;; reference types = class instances.   ;;
 ;;                                      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 : (static_method_2) :private (
     [ 1 2 3 "{1} {2} {3}" Console.WriteLine ]
 ) . 
 
 ;; label things to shorten code.
-
 : (set_position -> x y z) :public (
     transform.position p label
         p.x x +
@@ -74,5 +65,4 @@ MainClass.listStack member
 ) .
 
 ;; end command to check ending of each name as segment key.
-
 MainClass end

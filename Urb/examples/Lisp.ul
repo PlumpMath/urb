@@ -30,6 +30,9 @@
            (void           -> object[]   Dictionary<string,object>)
            (:public :static )
            (begin))))
+           ;;
+           ;; (def DemoBrace (brace_test generic_test)
+           ;;   (begin))
 
 (class GenericClass<T> 
 	   (:public)
@@ -56,6 +59,11 @@
                  (:public :static)
                  (begin
                     (Console.WriteLine line)))
+
+            ;;(def print (line)
+            ;;    (Console.WriteLine line))
+
+
 
             (def (pytago -> x y z)
 	             (void   -> float float float)
