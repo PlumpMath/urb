@@ -214,6 +214,8 @@ namespace Urb
             public abstract object Eval(Stack<object> frame);
         }
 
+        #region Operators
+
         enum Operator
         {
             Add, Sub, Div, Mul,
@@ -303,6 +305,8 @@ namespace Urb
             }
         }
 
+        #endregion
+
         public class TypeQuestion : Function
         {
             public TypeQuestion(Type[] signature) : base(signature)   {  }
@@ -380,7 +384,7 @@ namespace Urb
 
         #endregion
 
-        #region Repl
+        #region Data / Modes
 
         public enum CompilerMode
         {
@@ -412,6 +416,10 @@ namespace Urb
                 // interpreter functions
                 { "exit", new Exit(null)}
             };
+
+        #endregion
+
+        #region Repl
 
         private void EatToken(Token token)
         {
