@@ -631,18 +631,28 @@ namespace Urb
             /// eval body:
             var body = function.body;
             /// local + env:
-            var modEnv = userVars;
-            foreach(var keypair in localVars)
-                if (modEnv.ContainsKey(keypair.Key))
-                {
-                    throw new Exception("ambitious variable " + keypair.Key);
-                }
-                else
-                {
-                    modEnv.Add(keypair.Key, keypair.Value);
-                }
-
+            var modEnv = new Dictionary<string, object>();
+            modEnv = Copy(modEnv, env);
+            modEnv = Copy(modEnv, localVars);
             Eval(body, modEnv);
+            //modEnv.Clear();
+        }
+
+        public static Dictionary<string, object> Copy
+            ( Dictionary<string, object> src, 
+              Dictionary<string, object> des, 
+             bool isOverwrite = false)
+        {
+            foreach (var pair in des)
+            {
+                if (src.ContainsKey(pair.Key))
+                {
+                    if (isOverwrite) src.Remove(pair.Key);
+                    throw new Exception("ambitious variable " + pair.Key);
+                }
+                src.Add(pair.Key, pair.Value);
+            }
+            return src;   
         }
 
         public void Eval(List body, Dictionary<string, object> env)
