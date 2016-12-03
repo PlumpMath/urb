@@ -154,7 +154,7 @@ namespace Urb
         private static void _print(string line, params object[] args)
         {
             var backup = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = ConsoleColor.Green;
             Console.Write(line, args);
             Console.ForegroundColor = backup;
         }
@@ -210,7 +210,7 @@ namespace Urb
                 if (frame.Count < Signature.Length) return false;
                 var isOk = false;
                 var args = new object[Signature.Length];
-                frame.CopyTo(args, frame.Count - Signature.Length-1);
+                frame.CopyTo(args, frame.Count - Signature.Length - 1);
 
                 for (int i = Signature.Length - 1; i > 0; i--)
                 {
@@ -341,7 +341,7 @@ namespace Urb
                     /// body params name.
                     body = (frame.Pop() as List);
                     parameters = (frame.Pop() as List);
-                    var name = (frame.Pop() as Token).Value;
+                    name = (frame.Pop() as Token).Value;
                     /// override current function.
                     if (userFunctions.ContainsKey(name)) userFunctions.Remove(name);
                     userFunctions.Add(name, this);
@@ -595,21 +595,31 @@ namespace Urb
 
                 //case "operator":
                 case "literal":
-                    if (functionMap.ContainsKey(token.Value))
+                    switch (compilerMode)
                     {
-                        ApplyPrimitives(token, env);
+                        case CompilerMode.Awake:
+                            /// if it's primitives: 
+                            if (functionMap.ContainsKey(token.Value))
+                            {
+                                ApplyPrimitives(token, env);
+                            }
+                            /// if it's defined:
+                            else if (userFunctions.ContainsKey(token.Value))
+                            {
+                                ApplyUserFunction(token, env);
+                            }
+                            /// if it's variable from env:
+                            else if (env.ContainsKey(token.Value))
+                            {
+                                evaluationStack.Push(env[token.Value]);
+                            }
+                            break;
+                        case CompilerMode.Sleep:
+                            // to stack for now. //
+                            evaluationStack.Push(token);
+                            break;
+                        default: throw new NotImplementedException();
                     }
-                    else if (userFunctions.ContainsKey(token.Value))
-                    {
-                        ApplyUserFunction(token, env);
-                    }
-                    else if (env.ContainsKey(token.Value))
-                    {
-                        evaluationStack.Push(env[token.Value]);
-                    }
-                  
-                    // to stack for now. //
-                    else evaluationStack.Push(token);
                     break;
 
                 default:
@@ -639,8 +649,8 @@ namespace Urb
         }
 
         public static Dictionary<string, object> Copy
-            ( Dictionary<string, object> src, 
-              Dictionary<string, object> des, 
+            (Dictionary<string, object> src,
+              Dictionary<string, object> des,
              bool isOverwrite = false)
         {
             foreach (var pair in des)
@@ -652,7 +662,7 @@ namespace Urb
                 }
                 src.Add(pair.Key, pair.Value);
             }
-            return src;   
+            return src;
         }
 
         public void Eval(List body, Dictionary<string, object> env)

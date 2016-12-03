@@ -34,15 +34,9 @@ MainClass (partial static public) class
 
 MainClass.listStack member
 
-def (sum -> a b c) (
-    (a b c) '+ reduce
-    ) 
-end
+@ sum (a b c) ((a b c) '+ reduce) !def
 
-def (static_method) (
-        [ "This's static method" Console.WriteLine ]
-    ) 
-end 
+@ static_method () ([ "This's static method" Console.WriteLine ]) !def 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                      ;;
@@ -52,19 +46,19 @@ end
 ;; reference types = class instances.   ;;
 ;;                                      ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-: (static_method_2) :private (
+@ static_method_2 () (
     [ 1 2 3 "{1} {2} {3}" Console.WriteLine ]
-) . 
+) !def
 
 ;; label things to shorten code.
-: (set_position -> x y z) :public (
-    transform.position p label
+@ set_position (x y z) (
+    [transform.position :p label]
         p.x x +
         p.y y +
         p.z z +
         Vector3 new p =
     p end
-) .
+) !def
 
 ;; end command to check ending of each name as segment key.
 MainClass end
