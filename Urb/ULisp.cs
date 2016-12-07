@@ -241,8 +241,8 @@ namespace Urb
         private static List<string> references = new List<string>();
         private static void TransformTokens(Token[] tokens, List<Token> acc, bool isDebugTransform)
         {
-            if(isDebugTransform)
-            _print("\nBuilding expressions from {0} tokens...\n", tokens.Length);
+            if (isDebugTransform)
+                _print("\nBuilding expressions from {0} tokens...\n", tokens.Length);
             _transformerIndex = 0;
             _tokenTree = new List<Block>();
 
@@ -272,7 +272,7 @@ namespace Urb
                 {
                     case ")":
                         _close++;
-                        if(isDebugTransform) _print(" )");
+                        if (isDebugTransform) _print(" )");
                         //_print(" end#{0} \n", _transformerIndex);
                         _transformerIndex = i + 1;
                         var closedE = new Block(acc.ToArray());
@@ -324,6 +324,7 @@ namespace Urb
 
         private static List<Block> MacroExpand(List<Block> blocks)
         {
+            _print("* Macros Expanding... *");
             /******************************************
 			 * 									      *
 			 *            MACROS EXPANDING            *
@@ -337,19 +338,32 @@ namespace Urb
              * implemented functions can be used.     *
 			 * 									   	  *
              * - Macros components:                   *
-             * . Quote                                *
+             * . Quote: ok                            *
              * . Unquote                              *
              * . Defined Macros					      *		   	  
              * 									   	  *
 			 ******************************************/
+            //return blocks;
             var acc = new List<Block>();
-            foreach(var block in blocks)
+            foreach (var block in blocks)
             {
-                var _block = new List<object>();
-                var i = 0;
-                while( i < block.elements.Count)
+                var b = MacroExpand(block);
+                acc.Add(b);
+            }
+            return acc;
+        }
+
+        public static Block MacroExpand(Block block)
+        {
+            var _block = new List<object>();
+            var i = 0;
+            while (i < block.elements.Count)
+            {
+
+                var e = block.elements[i];
+                if (e.GetType() == typeof(Token))
                 {
-                    var v = (block.elements[i] as Token).Name;
+                    var v = (e as Token).Name;
                     switch (v)
                     {
                         case "quote":
@@ -365,9 +379,14 @@ namespace Urb
                             break;
                     }
                 }
-                acc.Add(new Block(_block.ToArray()));
+                else
+                {
+                    var b = MacroExpand(e as Block);
+                    _block.Add(b);
+                    i++;
+                }
             }
-            return acc;
+            return new Block(_block.ToArray());
         }
 
         #endregion
@@ -604,7 +623,7 @@ namespace Urb
             }
 
         }
-        
+
         #endregion
 
         #region Primitives
@@ -1117,14 +1136,14 @@ namespace Urb
                 case Operator.SubSelf: body = Expression.SubtractAssign(paramA, paramB); break;
                 case Operator.MulSelf: body = Expression.MultiplyAssign(paramA, paramB); break;
                 case Operator.DivSelf: body = Expression.DivideAssign(paramA, paramB); break;
-                default:  throw new NotImplementedException();
-            } 
+                default: throw new NotImplementedException();
+            }
             // compile it
             Func<T, T, T> f = Expression.Lambda<Func<T, T, T>>(body, paramA, paramB).Compile();
             // call it
             return f(a, b);
         }
-      
+
         private class DivideSelfOperatorForm : Functional
         {
             public DivideSelfOperatorForm(object[] args) : base(args) { }
@@ -1207,7 +1226,7 @@ namespace Urb
         }
 
         #endregion
-        
+
         private class JumpDirectiveForm : Functional
         {
             public JumpDirectiveForm(object[] args) : base(args) { }
@@ -1216,10 +1235,10 @@ namespace Urb
                 return String.Format("goto {0};", (Atom)args[0]);
             }
         }
-        
+
         private class CompileDirectiveForm : Functional
         {
-            public CompileDirectiveForm(object[] args) : base(args){}
+            public CompileDirectiveForm(object[] args) : base(args) { }
 
             public override object Eval(Dictionary<string, object> env = null)
             {
@@ -1284,23 +1303,24 @@ namespace Urb
             public Evaluation(object _value = null) { value = _value; }
             public override string ToString()
             {
-                return string.Format("{0}:{1}", 
-                    value == null ? "nil" : value, 
+                return string.Format("{0}:{1}",
+                    value == null ? "nil" : value,
                     value == null ? "null" : value.GetType().Name);
             }
         }
 
         public class Nil : Evaluation { public Nil() : base() { } }
         public class Value : Evaluation { public Value(object value) : base(value) { } }
-        public class Quote : Evaluation {
+        public class Quote : Evaluation
+        {
             public Quote(List<Block> block) { value = block; }
-            public Quote(object value) : base(value){        }
+            public Quote(object value) : base(value) { }
             public override string ToString()
             {
-                if(value.GetType() == typeof(List<Block>))
+                if (value.GetType() == typeof(List<Block>))
                 {
                     var acc = new StringBuilder();
-                    foreach(var block in (List<Block>)value)
+                    foreach (var block in (List<Block>)value)
                     {
                         acc.Append(
                             string.Format("[Quote {0} ]\n", block.ToString()));
@@ -1323,13 +1343,13 @@ namespace Urb
             public override string ToString()
             {
                 var acc = new StringBuilder();
-                foreach(T t in elements)
+                foreach (T t in elements)
                 {
-                    if (t.GetType()!=typeof(Cons<T>))
+                    if (t.GetType() != typeof(Cons<T>))
                         acc.Append(t.ToString() + " ");
                     else
                     {
-                        
+
                     }
                 }
                 return acc.ToString();
@@ -1342,7 +1362,7 @@ namespace Urb
         {
             var expansion = MacroExpand(blocks);
             var expressions = TokenTreeToExpressions(expansion);
-            foreach(var function in expressions)
+            foreach (var function in expressions)
             {
                 function.Eval(environment);
             }
@@ -1365,12 +1385,12 @@ namespace Urb
                     if (tokens[0].Name == "quote")
                     {
                         if (_tree.Count == 0 && tokens.Count == 2) return new Quote(tokens[1].Value);
-                        if (_tree.Count == 1 && tokens.Count > 2)  return new Quote(_tree);
+                        if (_tree.Count == 1 && tokens.Count > 2) return new Quote(_tree);
                     }
                     // Eval an expression :                            //
                     var result = Eval(_tree);
                     return result;
-                    
+
             }
         }
         /************************************************************************ 
@@ -1432,7 +1452,7 @@ namespace Urb
                 _print("\n" + _nTimes("_", 80) + "\n\n");
             }
         }
-        
+
         #region Viewers
 
         public static void Traverse(List<Functional> tree)

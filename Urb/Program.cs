@@ -25,6 +25,7 @@ namespace Urb
                 var ufo = new UForth();
                 while (true)
                 {
+                    Console.ForegroundColor = ConsoleColor.Black;
                     Console.Write("> ");
                     var input = Console.ReadLine();
                     ufo.Repl(input);
@@ -39,8 +40,8 @@ namespace Urb
                 //    ;; as quote test
                 //    ;; (compile @((require System)))
                 //");
-
-                //source = File.ReadAllText("../../examples/Lisp.ul");
+                //var uLisp = new ULisp();
+                //var source = File.ReadAllText("../../examples/Lisp.ul");
 
                 // Compiling..
                 //uLisp.Compile(source, "demo.dll", isDebugTransform: true);
