@@ -56,3 +56,5 @@ I was experiment with all language samples transformation that can be translated
 Certainly, this is still experiment.
  You will know when it's ready. 
  The world will know :)
+ 
+ * If you have any interests in language design/creation, please join me at: https://gitter.im/language-creator/Lobby
