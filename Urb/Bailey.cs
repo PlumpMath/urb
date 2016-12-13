@@ -118,7 +118,102 @@ namespace Urb
 
         #endregion
 
+        #region Lexer/EatToken
+
+
+        private void EatToken(Token token, Dictionary<string, object> env)
+        {
+            switch (token.Name)
+            {
+                case "eval_mode":
+                    compilerMode = CompilerMode.Awake;
+                    _print("[compiler] Awaken.");
+                    break;
+
+                case "uneval_mode":
+                    compilerMode = CompilerMode.Sleep;
+                    _print("[compiler] Slept.");
+                    break;
+
+                case "separator":
+                    /// () []
+                    switch (token.Value)
+                    {
+                        case "(":
+                            compilerMode = CompilerMode.Sleep;
+                            NewStackFrame();
+                            break;
+                        case ")":
+                            compilerMode = CompilerMode.Awake;
+                            CloseStackFrameToList();
+                            break;
+
+                        case "[": NewStackFrame(); break;
+                        case "]": CloseStackFrameToStack(); break;
+                        default: /// ignoring.
+                            break;
+                    }
+                    break;
+
+                //case "backward": functionMap[token.Value].Eval(evaluationStack); break;
+                case "forward": break;
+
+                //case "operator":
+                case "literal":
+                    switch (compilerMode)
+                    {
+                        case CompilerMode.Awake:
+                            /// if it's primitives: 
+                            if (env.ContainsKey(token.Value))
+                            {
+                                Apply(token, env);
+                            }
+                            /// if it's defined:
+                            else if (env.ContainsKey(token.Value))
+                            {
+                                Apply(token, env);
+                            }
+                            /// if it's variable from env:
+                            else if (env.ContainsKey(token.Value))
+                            {
+                                evaluationStack.Push(env[token.Value]);
+                            }
+                            break;
+                        case CompilerMode.Sleep:
+                            // to stack for now. //
+                            evaluationStack.Push(token);
+                            break;
+                        default: throw new NotImplementedException();
+                    }
+                    break;
+
+                default:
+                    evaluationStack.Push(BuildValueType(token));
+                    break;
+            }
+        }
+
+        private List<object> Lexer(List<Token> tokens)
+        {
+            foreach (var token in tokens)
+            {
+                EatToken(token, env);
+            }
+            return evaluationStack.Pop() as List;
+        }
+
+
+        #endregion
+
         #region Line Helpers 
+
+        private static string _nTimes(string ch, int time)
+        {
+            var acc = "";
+            for (int i = 1; i < time; i++) acc += ch;
+            return acc;
+        }
+
         private List<string> _csharp_blocks = new List<string>();
 
         public static string nTimes(string ch, int time)
@@ -195,6 +290,115 @@ namespace Urb
 
         #endregion
 
+        #region Typing
 
+        public object BuildValueType(Token token)
+        {
+            switch (token.Name)
+            {
+                case "string": return token.Value;
+                case "integer": return Int32.Parse(token.Value);
+                case "double": return double.Parse(token.Value);
+                case "float": return float.Parse(
+                                token.Value.ToString().Substring(0,
+                                token.Value.ToString().Length - 1));
+                case "symbol":
+                    return new Atom(token.Name,
+                                    token.Value.Substring(1, token.Value.Length - 1));
+                default: return new Atom(token.Name, token.Value);
+            }
+        }
+
+        #endregion
+
+        #region Stack Manipulators
+        public enum CompilerMode
+        {
+            Awake, Sleep
+        }
+        public CompilerMode compilerMode = CompilerMode.Awake; // by default. //
+        public Stack<object> evaluationStack = new Stack<object>();
+        public Stack<Stack<object>> Frames = new Stack<Stack<object>>();
+
+        public void PrintStack()
+        {
+            Console.Write("[ ");
+            foreach (var e in evaluationStack)
+            {
+                Console.Write("{0} ", e);
+            }
+            Console.Write(" ]");
+        }
+
+        public void NewStackFrame()
+        {
+            /// create new stack frame.
+            Frames.Push(evaluationStack);
+            evaluationStack = new Stack<object>();
+        }
+
+        public void CloseStackFrameToList()
+        {
+            /// acc all current stack frame into a list.
+            var lst = new List(evaluationStack.ToArray());
+            evaluationStack = Frames.Pop();
+            evaluationStack.Push(lst);
+        }
+
+        public void CloseStackFrameToStack()
+        {
+            var store = Frames.Pop();
+            foreach (var o in evaluationStack)
+            {
+                store.Push(o);
+            }
+            evaluationStack = store;
+        }
+
+        #endregion
+
+        #region Eval/Repl
+
+        private void Apply (Token token, Dictionary<string,object> env)
+        {
+
+        }
+
+        public Dictionary<string, object> env = new Dictionary<string, object>();
+
+        public Atom Eval(List<object> tokens)
+        {
+
+            return new Atom("null",tokens);
+        }
+
+        public void ReplTest(string source)
+        {
+            var _tokens = Reader(source);
+            var _tree = Lexer(_tokens);
+            var result = Eval(_tree);
+            _print("=> {0}", result);
+        }
+
+        public void ReplSession()
+        {
+            var environment = new Dictionary<string, object>();
+            while (true)
+            {
+                _print("> ", null);
+                var _input = Console.ReadLine();
+                if (_input == "quit") break;
+
+                var _tokens = Reader(_input);
+                var _tree = Lexer(_tokens);
+                var result = Eval(_tree);
+                _print("=> {0}", result);
+
+                // end line. //
+                _print("\n" + _nTimes("_", 80) + "\n\n");
+            }
+        }
+
+        #endregion
     }
 }
