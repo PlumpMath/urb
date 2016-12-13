@@ -48,6 +48,7 @@
     <Compile Include="ULisp.cs" />
     <Compile Include="Atom.cs" />
     <Compile Include="UForth.cs" />
+    <Compile Include="Bailey.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="examples\bailey.b" />
