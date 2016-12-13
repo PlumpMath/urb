@@ -7,23 +7,19 @@
 
 load System
 using System.Collection.Generic
-
-extends Object
-
-fun factorial :static :public
-    int [acc n]
-    psh [1 n]
+ 
+fun factorial
+    int acc n
+    psh n 1
     jge :cont
 
-    ;;; mean to return acc.
     psh acc     
     ret
 
-    ;;; :cont as a label.
     blo :cont
-    psh [acc n]
+    psh acc n
     mul
-    psh [1 n]
+    psh n 1
     sub
     rec
 end
