@@ -57,6 +57,7 @@
     <None Include="examples\Lisp.ul" />
     <None Include="lib\repl_init.ul" />
     <None Include="examples\Forth.ufo" />
+    <None Include="examples\simple.ul" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />

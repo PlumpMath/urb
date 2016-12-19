@@ -631,19 +631,21 @@ namespace Urb
         private static Dictionary<string, Type> _specialForms =
             new Dictionary<string, Type>()
             {
-                {"def", typeof(DefForm)},
-                {"class", typeof(ClassForm) },
-                {"set", typeof(SetForm)}
+                {"member", typeof(MemberForm)},
+                {"define", typeof(DefineForm)},
+                //{"class", typeof(ClassForm) },
+                //{"set", typeof(SetForm)}
             };
 
         // primitive form will default-build its arguments. //
         private static Dictionary<string, Type> _primitiveForms =
             new Dictionary<string, Type>()
             {
-            {"require",  typeof(RequireForm)},
-            {"import",  typeof(ImportForm)},
+            {"load",  typeof(LoadForm)},
+            {"using",  typeof(UsingForm)},
             {"inherit", typeof(InheritForm)},
-            {"begin", typeof(BeginForm)},
+            //{"attribute", typeof(AttributeForm)},
+            //{"begin", typeof(BeginForm)},
             {"new", typeof(NewForm)},
             {"override", typeof(DefoverrideForm)},
             {"return", typeof(ReturnForm)},
@@ -670,9 +672,9 @@ namespace Urb
             {"compile", typeof(CompileDirectiveForm)}
             };
 
-        private class RequireForm : Functional
+        private class LoadForm : Functional
         {
-            public RequireForm(object[] args) : base(args) { }
+            public LoadForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 var ns = ((Atom)args[0]).ToString();
@@ -681,9 +683,9 @@ namespace Urb
             }
         }
 
-        private class ImportForm : Functional
+        private class UsingForm : Functional
         {
-            public ImportForm(object[] args) : base(args) { }
+            public UsingForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return String.Format("using {0};", (Atom)args[0]);
@@ -933,10 +935,10 @@ namespace Urb
             return attributes.ToString();
         }
 
-        private class DefForm : Functional
+        private class MemberForm : Functional
         {
             public bool isStatic = false;
-            public DefForm(object[] args) : base(args)
+            public MemberForm(object[] args) : base(args)
             {
                 // copying...           //
                 this.args = args;
@@ -950,10 +952,10 @@ namespace Urb
             }
         }
 
-        private class DefstaticForm : Functional
+        private class DefineForm : Functional
         {
             public bool isStatic = false;
-            public DefstaticForm(object[] args) : base(args) { }
+            public DefineForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 return BuildMethod(args, isStatic: true);

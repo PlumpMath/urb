@@ -20,8 +20,35 @@ namespace Urb
             // Test Source:
             else
             {
-                var bailey = new Bailey();
-                bailey.Reader(@"
+                ULispTest();
+                // wait for prompt.
+                Console.ReadLine();
+            }
+        }
+
+        private static void ULispTest()
+        {
+
+            // minimal test.
+            //ULisp.ReplTest(@"
+            //    ;; as quote test
+            //    ;; (compile @((require System)))
+            //");
+            var uLisp = new ULisp();
+            var source = File.ReadAllText("../../examples/simple.ul");
+
+            // Compiling..
+            uLisp.Compile(source, "demo.dll", isDebugTransform: false);
+            //uLisp.Compile(source, "demo.dll", false, true, true);
+
+            // it's not ready yet.
+            //ULisp.ReplSession();
+        }
+
+        private static void BaileyTest()
+        {
+            var bailey = new Bailey();
+            bailey.Reader(@"
                     fun factorial
                     arg acc n
                     psh n   1
@@ -37,28 +64,6 @@ namespace Urb
                     rec
                     end
 ");
-            }
-            // wait for prompt.
-            Console.ReadLine();
-        }
-
-        private void ULisp()
-        {
-
-            // minimal test.
-            //ULisp.ReplTest(@"
-            //    ;; as quote test
-            //    ;; (compile @((require System)))
-            //");
-            //var uLisp = new ULisp();
-            //var source = File.ReadAllText("../../examples/Lisp.ul");
-
-            // Compiling..
-            //uLisp.Compile(source, "demo.dll", isDebugTransform: true);
-            //uLisp.Compile(source, "demo.dll", false, true, true);
-
-            // it's not ready yet.
-            //ULisp.ReplSession();
         }
 
         private void UforthRepl()
