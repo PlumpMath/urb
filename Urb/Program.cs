@@ -25,8 +25,8 @@ namespace Urb
                 Console.ReadLine();
             }
         }
-
         private static void ULispTest()
+
         {
 
             // minimal test.
@@ -39,10 +39,11 @@ namespace Urb
 
             // Compiling..
             uLisp.Compile(source, "demo.dll", isDebugTransform: false);
+
             //uLisp.Compile(source, "demo.dll", false, true, true);
 
             // it's not ready yet.
-            //ULisp.ReplSession();
+            ULisp.ReplSession();
         }
 
         private static void BaileyTest()
@@ -66,7 +67,7 @@ namespace Urb
 ");
         }
 
-        private void UforthRepl()
+        private static void UforthRepl()
         {
             var ufo = new UForth();
             while (true)

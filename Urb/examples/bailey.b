@@ -1,23 +1,25 @@
-﻿;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                                 ;;
-;;       Bailey :: a high level IL language        ;;
-;;      * based on asmrb prototype on ruby. *      ;;
-;;                                                 ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+﻿;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;                                                ;;;
+;;;       Bailey :: a high level IL language       ;;;
+;;;      * based on asmrb prototype on ruby. *     ;;;
+;;;                                                ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+load System
+using System.Collection.Generic
+ 
 fun factorial
-    int [acc n]
-    psh [1 n]
-    jge cont
+    int acc n
+    psh n 1
+    jge :cont
 
-    psh acc
-    cal puts
+    psh acc     
     ret
 
-    blo cont
-    psh [acc n]
+    blo :cont
+    psh acc n
     mul
-    psh [1 n]
+    psh n 1
     sub
     rec
 end
@@ -37,6 +39,9 @@ end
 
 fun repl
     arg string source
+    psh source
+    cal Reader
+    var tokens
     for var token
     in  tokens
     do  :eating

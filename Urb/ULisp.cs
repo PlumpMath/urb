@@ -1104,7 +1104,11 @@ namespace Urb
             }
             public override object Eval(Dictionary<string, object> env)
             {
-                return base.Eval(env);
+                var acc = new StringBuilder();
+                foreach (var arg in args)
+                    acc.Append(" " + arg.ToString());
+
+                return string.Format("({0} {1})", "+", acc);
             }
         }
 
@@ -1366,7 +1370,8 @@ namespace Urb
             var expressions = TokenTreeToExpressions(expansion);
             foreach (var function in expressions)
             {
-                function.Eval(environment);
+                _print(
+                    function.Eval(environment).ToString());
             }
             return null;
         }
