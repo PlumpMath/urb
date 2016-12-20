@@ -5,13 +5,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 @square (x) 
-    x x mul
+    (x x *)
 !save
 
 12 square
 
-@factorial (x)
-
+@factorial (acc n)
+	((n 1 >)
+		( n 1 - acc * n 1 - factorial )
+		(acc)
+		if)
+!save
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;;				   ;;

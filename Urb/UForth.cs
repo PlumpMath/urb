@@ -6,6 +6,8 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Linq.Expressions;
+using System.CodeDom;
+using System.Security.Cryptography.X509Certificates;
 namespace Urb
 {
     public class UForth
@@ -57,11 +59,11 @@ namespace Urb
             // integer 120
             @"(?<integer>[+-]?[0-9]+)|" +
 
-            // operators
-            @"(?<operator>\+=|\-=|\=|\+|\-|\*|\/|\^)|" +
             // boolean
-            @"(?<boolean_compare>[\>|\<|\==|\>=|\<=])|" +
+            @"(?<boolean_compare>[\>|\<|\=|\>=|\<=])|" +
             @"(?<boolean_condition>[\|\||\&\&])|" +
+            // operators
+            @"(?<operator>\+=|\-=|\+|\-|\*|\/|\^)|" +
 
             // #Comments
             @"(?<comment>;;;.*\n)|" +
@@ -163,6 +165,7 @@ namespace Urb
 
         #region List
 
+        [Serializable]
         public class List : List<object>
         {
 
@@ -219,7 +222,7 @@ namespace Urb
                 }
                 return isOk;
             }
-            public abstract object Eval(Stack<object> frame);
+            public abstract object Eval(Stack<object> frame, UForth evaluator);
         }
 
         #region Operators
@@ -227,7 +230,31 @@ namespace Urb
         enum Operator
         {
             Add, Sub, Div, Mul,
-            AddSelf, SubSelf, DivSelf, MulSelf
+            AddSelf, SubSelf, DivSelf, MulSelf,
+            LessThan, GreaterThan, LessEqual, GreaterEqual, Equal
+        }
+
+        static bool BuildBooleanOperator<T>(T a, T b, Operator op)
+        {
+
+            //TODO: re-use delegate!
+            // declare the parameters
+            ParameterExpression paramA = Expression.Parameter(typeof(T), "a"),
+                                paramB = Expression.Parameter(typeof(T), "b");
+            BinaryExpression body;
+            switch (op)
+            {
+                case Operator.Equal: body = Expression.Equal(paramA, paramB); break;
+                case Operator.LessThan: body = Expression.LessThan(paramA, paramB); break;
+                case Operator.LessEqual: body = Expression.LessThanOrEqual(paramA, paramB); break;
+                case Operator.GreaterThan: body = Expression.GreaterThan(paramA, paramB); break;
+                case Operator.GreaterEqual: body = Expression.GreaterThanOrEqual(paramA, paramB); break;
+                default: throw new NotSupportedException();
+            }
+            // compile it
+            Func<T, T, bool> f = Expression.Lambda<Func<T, T, bool>>(body, paramA, paramB).Compile();
+            // call it
+            return f(a, b);
         }
 
         static T BuildOperator<T>(T a, T b, Operator op)
@@ -235,7 +262,7 @@ namespace Urb
             //TODO: re-use delegate!
             // declare the parameters
             ParameterExpression paramA = Expression.Parameter(typeof(T), "a"),
-                paramB = Expression.Parameter(typeof(T), "b");
+                                paramB = Expression.Parameter(typeof(T), "b");
             // add the parameters together
             BinaryExpression body;
             switch (op)
@@ -256,20 +283,42 @@ namespace Urb
             return f(a, b);
         }
 
+        private static bool ReturnBooleanBinary(Operator op, Stack<object> frame)
+        {
+            // a b -> b a
+            var b = frame.Pop();
+            var a = frame.Pop();
+
+            if (a is int)
+            {
+                return BuildBooleanOperator<int>((int)a, (int)b, op);
+            }
+            else if (a is float)
+            {
+                return BuildBooleanOperator<float>((float)a, (float)b, op);
+            }
+            else if (a is double)
+            {
+                return BuildBooleanOperator<double>((double)a, (double)b, op);
+            }
+            throw new NotImplementedException();
+        }
+
         private static object ReturnBinary(Operator op, Stack<object> frame)
         {
             // a b -> b a
             var b = frame.Pop();
             var a = frame.Pop();
-            if (a.GetType() == typeof(int))
+
+            if (a is int)
             {
                 return BuildOperator<int>((int)a, (int)b, op);
             }
-            else if (a.GetType() == typeof(float))
+            else if (a is float)
             {
                 return BuildOperator<float>((float)a, (float)b, op);
             }
-            else if (a.GetType() == typeof(double))
+            else if (a is double)
             {
                 return BuildOperator<double>((double)a, (double)b, op);
             }
@@ -280,7 +329,7 @@ namespace Urb
         {
             public Add(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 return ReturnBinary(Operator.Add, frame);
             }
@@ -289,7 +338,7 @@ namespace Urb
         {
             public Sub(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 return ReturnBinary(Operator.Sub, frame);
             }
@@ -298,7 +347,7 @@ namespace Urb
         {
             public Mul(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 return ReturnBinary(Operator.Mul, frame);
             }
@@ -307,44 +356,117 @@ namespace Urb
         {
             public Div(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 return ReturnBinary(Operator.Div, frame);
             }
         }
+        public class LessThan : Function
+        {
+            public LessThan(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame, UForth evaluator)
+            {
+                return ReturnBooleanBinary(Operator.LessThan, frame);
+            }
+        }
+        public class LessEqual : Function
+        {
+            public LessEqual(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame, UForth evaluator)
+            {
+                return ReturnBooleanBinary(Operator.LessEqual, frame);
+            }
+        }
+        public class GreaterThan : Function
+        {
+            public GreaterThan(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame, UForth evaluator)
+            {
+                return ReturnBooleanBinary(Operator.GreaterThan, frame);
+            }
+        }
+        public class GreaterEqual : Function
+        {
+            public GreaterEqual(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame, UForth evaluator)
+            {
+                return ReturnBooleanBinary(Operator.GreaterEqual, frame);
+            }
+        }
+        public class Equal : Function
+        {
+            public Equal(Type[] signature) : base(signature) { }
+
+            public override object Eval(Stack<object> frame, UForth evaluator)
+            {
+                return ReturnBooleanBinary(Operator.Equal, frame);
+            }
+        }
+
 
         #endregion
+
+        public class If : Function
+        {
+            public If(Type[] signature) : base(signature) { }
+            public override object Eval(Stack<object> frame, UForth evaluator)
+            {
+                /// bool -> object -> object
+                var wrong_expr = frame.Pop() as List;
+                var right_expr = frame.Pop() as List;
+                var condition = frame.Pop() as List;
+                evaluator.Eval(condition, userVars);
+                var result = (bool)evaluator.evaluationStack.Pop();
+                return result ? right_expr : wrong_expr;
+            }
+        }
 
         public class TypeQuestion : Function
         {
             public TypeQuestion(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 var name = frame.Pop().GetType().Name;
                 return name;
             }
         }
 
+        [Serializable]
+        public class Lambda
+        {
+            public List body;
+            public List parameters;
+            public string name = String.Empty;
+            public Lambda(List _body, List _parameters, string _name)
+            {
+                this.name = _name;
+                this.body = _body;
+                this.parameters = _parameters;
+            }
+        }
+
         public class Defun : Function
         {
-            public string name = string.Empty;
-            public List parameters;
-            public List body;
 
             public Defun(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 if (base.TypeCheck(frame))
                 {
                     /// body params name.
-                    body = (frame.Pop() as List);
-                    parameters = (frame.Pop() as List);
-                    name = (frame.Pop() as Token).Value;
+                    var body = (frame.Pop() as List);
+                    var parameters = (frame.Pop() as List);
+                    var name = (frame.Pop() as Token).Value;
                     /// override current function.
                     if (userFunctions.ContainsKey(name)) userFunctions.Remove(name);
-                    userFunctions.Add(name, this);
+
+                    userFunctions.Add(name, new Lambda(body, parameters, name));
                     /// log:
                     _print("defined function {0}.\n", name);
                     return null;
@@ -371,7 +493,7 @@ namespace Urb
             {
             }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
 
                 if (base.TypeCheck(frame))
@@ -387,7 +509,7 @@ namespace Urb
         {
             public Print(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 var backup = Console.ForegroundColor;
                 Console.ForegroundColor = ConsoleColor.Green;
@@ -401,7 +523,7 @@ namespace Urb
         {
             public Flush(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 frame.Clear();
                 return null;
@@ -412,7 +534,7 @@ namespace Urb
         {
             public Drop(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 frame.Pop();
                 return null;
@@ -423,7 +545,7 @@ namespace Urb
         {
             public Dup(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 var o = frame.Peek();
                 return o;
@@ -434,7 +556,7 @@ namespace Urb
         {
             public Pop(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 return frame.Pop();
             }
@@ -444,7 +566,7 @@ namespace Urb
         {
             public Exit(Type[] signature) : base(signature) { }
 
-            public override object Eval(Stack<object> frame)
+            public override object Eval(Stack<object> frame, UForth evaluator)
             {
                 Environment.Exit(0);
                 return null;
@@ -482,11 +604,12 @@ namespace Urb
             Awake, Sleep
         }
         public CompilerMode compilerMode = CompilerMode.Awake; // by default. //
+        public Stack<CompilerMode> compilerState = new Stack<CompilerMode>();
         public Stack<object> evaluationStack = new Stack<object>();
         public Stack<Stack<object>> Frames = new Stack<Stack<object>>();
         public static Dictionary<string, object> userVars = new Dictionary<string, object>();
-        public static Dictionary<string, Defun> userFunctions = new Dictionary<string, Defun>();
-        public Dictionary<string, Function> coreFunc =
+        public static Dictionary<string, Lambda> userFunctions = new Dictionary<string, Lambda>();
+        public Dictionary<string, Function> coreFunctions =
             new Dictionary<string, Function>()
             {
                 // creation
@@ -494,11 +617,19 @@ namespace Urb
                 {"var", new Var(new Type[] { typeof(Token), typeof(object)})},
 
                 // operators
-                { "add", new Add(new Type[] { typeof(object), typeof(object)})},
-                { "sub", new Sub(new Type[] { typeof(object), typeof(object)})},
-                { "div", new Div(new Type[] { typeof(object), typeof(object)})},
-                { "mul", new Mul(new Type[] { typeof(object), typeof(object)})},
+                { "+", new Add(new Type[] { typeof(object), typeof(object)})},
+                { "-", new Sub(new Type[] { typeof(object), typeof(object)})},
+                { "/", new Div(new Type[] { typeof(object), typeof(object)})},
+                { "*", new Mul(new Type[] { typeof(object), typeof(object)})},
+                { ">", new GreaterThan(new Type[] { typeof(object), typeof(object)})},
+                { "<", new LessThan(new Type[] { typeof(object), typeof(object)})},
+                { ">=", new GreaterEqual(new Type[] { typeof(object), typeof(object)})},
+                { "<=", new LessEqual(new Type[] { typeof(object), typeof(object)})},
+                { "=", new Equal(new Type[] { typeof(object), typeof(object)})},
                 
+                // branching
+                { "if", new If(new Type[]{typeof(List), typeof(List), typeof(List)})},
+
                 // helpers
                 { "type?", new TypeQuestion(new Type[] {typeof(object)})},
                 { "print", new Print(new Type[] {typeof(object) })},
@@ -556,18 +687,42 @@ namespace Urb
 
         #endregion
 
+        private void ChangeCompilerState(CompilerMode next_state)
+        {
+            // store current state.
+            compilerState.Push(compilerMode);
+            compilerMode = next_state;
+            if (compilerMode == CompilerMode.Sleep)
+                _print("[compiler] Slept.");
+        }
+
+        private void RestoreCompilerState(bool isForced = false)
+        {
+            if (isForced)
+            {
+                compilerMode = CompilerMode.Awake;
+                compilerState.Clear();
+                _print("[compiler] Awaken.");
+                return;
+            }
+            if (compilerState.Count > 0)
+                compilerMode = compilerState.Pop();
+            else {
+                compilerMode = CompilerMode.Awake;
+                _print("[compiler] Awaken.");
+            }
+        }
+
         private void EatToken(Token token, Dictionary<string, object> env)
         {
             switch (token.Name)
             {
                 case "eval_mode":
-                    compilerMode = CompilerMode.Awake;
-                    _print("[compiler] Awaken.");
+                    RestoreCompilerState(true);
                     break;
 
                 case "uneval_mode":
-                    compilerMode = CompilerMode.Sleep;
-                    _print("[compiler] Slept.");
+                    ChangeCompilerState(CompilerMode.Sleep);
                     break;
 
                 case "separator":
@@ -575,11 +730,11 @@ namespace Urb
                     switch (token.Value)
                     {
                         case "(":
-                            compilerMode = CompilerMode.Sleep;
+                            ChangeCompilerState(CompilerMode.Sleep);
                             NewStackFrame();
                             break;
                         case ")":
-                            compilerMode = CompilerMode.Awake;
+                            RestoreCompilerState();
                             CloseStackFrameToList();
                             break;
 
@@ -590,16 +745,17 @@ namespace Urb
                     }
                     break;
 
-                case "backward": coreFunc[token.Value].Eval(evaluationStack); break;
+                case "backward": coreFunctions[token.Value].Eval(evaluationStack, this); break;
                 case "forward": break;
 
-                //case "operator":
+                case "boolean_compare":
+                case "operator":
                 case "literal":
                     switch (compilerMode)
                     {
                         case CompilerMode.Awake:
                             /// if it's primitives: 
-                            if (coreFunc.ContainsKey(token.Value))
+                            if (coreFunctions.ContainsKey(token.Value))
                             {
                                 ApplyPrimitives(token, env);
                             }
@@ -678,7 +834,7 @@ namespace Urb
             switch (compilerMode)
             {
                 case CompilerMode.Awake: // eval.
-                    var result = coreFunc[token.Value].Eval(evaluationStack);
+                    var result = coreFunctions[token.Value].Eval(evaluationStack, this);
                     if (result != null) evaluationStack.Push(result); // push result >> stack.
                     break;
                 case CompilerMode.Sleep: // store!

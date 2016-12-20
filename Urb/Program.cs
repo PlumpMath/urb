@@ -20,7 +20,8 @@ namespace Urb
             // Test Source:
             else
             {
-                ULispTest();
+                UforthRepl();
+                //ULispTest();
                 // wait for prompt.
                 Console.ReadLine();
             }
