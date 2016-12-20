@@ -475,7 +475,7 @@ namespace Urb
 
         #endregion
 
-        #region Data / Modes
+        #region Data / Modes / functionMap
 
         public enum CompilerMode
         {
@@ -486,11 +486,11 @@ namespace Urb
         public Stack<Stack<object>> Frames = new Stack<Stack<object>>();
         public static Dictionary<string, object> userVars = new Dictionary<string, object>();
         public static Dictionary<string, Defun> userFunctions = new Dictionary<string, Defun>();
-        public Dictionary<string, Function> functionMap =
+        public Dictionary<string, Function> coreFunc =
             new Dictionary<string, Function>()
             {
                 // creation
-                {"def", new Defun(new Type[] { typeof(Token), typeof(List), typeof(List)})},
+                {"save", new Defun(new Type[] { typeof(Token), typeof(List), typeof(List)})},
                 {"var", new Var(new Type[] { typeof(Token), typeof(object)})},
 
                 // operators
@@ -590,7 +590,7 @@ namespace Urb
                     }
                     break;
 
-                case "backward": functionMap[token.Value].Eval(evaluationStack); break;
+                case "backward": coreFunc[token.Value].Eval(evaluationStack); break;
                 case "forward": break;
 
                 //case "operator":
@@ -599,7 +599,7 @@ namespace Urb
                     {
                         case CompilerMode.Awake:
                             /// if it's primitives: 
-                            if (functionMap.ContainsKey(token.Value))
+                            if (coreFunc.ContainsKey(token.Value))
                             {
                                 ApplyPrimitives(token, env);
                             }
@@ -678,7 +678,7 @@ namespace Urb
             switch (compilerMode)
             {
                 case CompilerMode.Awake: // eval.
-                    var result = functionMap[token.Value].Eval(evaluationStack);
+                    var result = coreFunc[token.Value].Eval(evaluationStack);
                     if (result != null) evaluationStack.Push(result); // push result >> stack.
                     break;
                 case CompilerMode.Sleep: // store!

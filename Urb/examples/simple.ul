@@ -21,7 +21,7 @@
 (define dict (new Dictionary<String,String>)) 
 
 (define (print::void line::string args::params::object[])
- 	(Console/WriteLine line))
+ 	(Console/WriteLine line args))
         
 (define (print::void line::string)
     (Console/WriteLine line))

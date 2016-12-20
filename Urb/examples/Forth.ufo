@@ -4,8 +4,14 @@
 ;;													;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-@ square (x) ( x x mul ) !def
+@square (x) 
+    x x mul
+!save
+
 12 square
+
+@factorial (x)
+
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;;				   ;;
@@ -34,9 +40,11 @@ MainClass (partial static public) class
 
 MainClass.listStack member
 
-@ sum (a b c) ((a b c) '+ reduce) !def
+@ sum (a b c) ((a b c) '+ reduce) !save
 
-@ static_method () ([ "This's static method" Console.WriteLine ]) !def 
+@ overload_enforce () 
+    [ "Enforced console.writeline" Console.WriteLine ] 
+!save
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                      ;;
@@ -51,14 +59,14 @@ MainClass.listStack member
 ) !def
 
 ;; label things to shorten code.
-@ set_position (x y z) (
+@ set_position (x y z)
     [transform.position :p label]
-        p.x x +
+        p.x x + 
         p.y y +
         p.z z +
         Vector3 new p =
     p end
-) !def
+!save
 
 ;; end command to check ending of each name as segment key.
 MainClass end
