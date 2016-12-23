@@ -828,7 +828,7 @@ namespace Urb
             var name = ((Token)args[0]).Value;
             var attributes =
                 args.Length == 3 ?
-                _buildAttributes(((Block)args[1]).elements) : "";
+                _buildAttributes(((Block)args[1]).elements) : "public";
             var type = "";
             var binding = "";
             var body = args[args.Length - 1];
@@ -857,6 +857,20 @@ namespace Urb
             }
         }
 
+        private static string[] Pair(Token token)
+        {
+            var acc = token.Value.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries);
+            for(int i = 0; i < acc.Length; i++)
+            {
+                if (acc[i].Contains("-"))
+                {
+                    acc[i] = acc[i].Replace("-", " ");
+                }
+            }
+            return acc;
+        }
+
+
         private static string[] Pair(Atom atom)
         {
             return atom.value.ToString().Split(new char[] { ':' });
@@ -867,65 +881,62 @@ namespace Urb
         {
             /**************************************************
 			 * 
-			 * :: DEF FORM ::
+			 * :: DEFINE FORM ::
 			 * 
-			 *  (def (name -> arg1 arg2)
-			 *       (type -> type1 type2)
-			 *       (:attribute)
-			 *       (progn &body))
+			 *  (define (name::type name2::type2) body)
 			 * 
-			 * 1. name & arg names.
-			 * 2. return type & arg types.
-			 * 3. attributes. 
-			 * 4. body.
+			 * 1. args.
+			 * N. body.
 			 * 
 			 **************************************************/
-            var names = ((Block)args[0]).elements;
-            var types = ((Block)args[1]).elements;
-            // validate arguments count: //
-            if (!(names.Count == types.Count && names.Count > 1))
-                throw new Exception("Malform def.");
-            names.Remove(names[1]);
-            types.Remove(types[1]);
-            var name = ((Token)names[0]).Value;
-            var returnType = ((Token)types[0]).Value;
+            var signature = ((Block)args[0]);
+            var _head = Pair(signature.head as Token);
+            var name = _head[0];
+            var returnType = _head[1];
+            
             var arguments = new StringBuilder();
             // matching arguments...//
-            if (names.Count > 1)
+            if (signature.elements.Count > 1)
             {
-                for (int i = 1; i < types.Count; i++)
+                foreach(Token parameter in signature.elements)
                 {
-
-                    var type = (Token)types[i];
-                    if (type.Value != "_")
+                    if (!parameter.Value.Contains(name))
+                    {
                         arguments.Append(string.Format(
-                            "{0} {1},",
-                            type.Name == "pair" ? type.Value.Replace("::", " ") : type.Value,
-                            ((Token)names[i]).Value));
+                                " {1} {0},", Pair(parameter)));
+                    }
                 }
+            }
                 // remove last comma.
                 if (arguments.Length > 0)
                     arguments.Remove(arguments.Length - 1, 1);
-            }
-            // collect attributes...//
-            var _attributes = args.Length == 4 ? ((Block)args[2]).elements : null;
 
+            /// Body processing... ///
+            var body = new StringBuilder();
+            for(int i = 1; i < args.Length; i++){
+                var _function = _insertPrimitives(args[i] as Block);
+                body.Append(
+                    Environment.NewLine +
+                    _function.CompileToCSharp() + 
+                    ///TODO: We ignore some forms here ///
+                    (_function is LabelForm ? "" : ";"));
+            } 
             // do some processing .. //
-            var body = ((Functional)args[args.Length - 1]).CompileToCSharp();
             var commit = new string[] {
-                _buildAttributes(_attributes),
+                "public" + (isStatic ? " static" : ""),
                 returnType == "ctor" ? "" : returnType,
                 name,
                 arguments.ToString(),
-                body
+                body.ToString()
                 };
             /* we add newline before new function. */
-            return String.Format("\n{0} {1} {2} ({3}) {4}", commit);
+            return String.Format("\n{0} {1} {2} ({3}) {{{4}\n}}", commit);
 
         }
 
         private static string _buildAttributes(List<object> _attributes)
         {
+            if (_attributes.Count == 0) return string.Empty;
             var attributes = new StringBuilder();
             if (_attributes != null)
             {
@@ -942,7 +953,7 @@ namespace Urb
         {
             /// Is non-static by default. ///
             public bool isVariable = false;
-            private VarForm _var;
+            private SetForm _setExpression;
 
             public MemberForm(object[] args) : base(args)
             {
@@ -960,12 +971,12 @@ namespace Urb
                 {
                     /// just variable ///
                     isVariable = true;
-                    _var = new VarForm(args);
+                    _setExpression = new SetForm(args);
                 }
             }
             public override string CompileToCSharp()
             {
-                if (isVariable) return _var.CompileToCSharp();
+                if (isVariable) return _setExpression.CompileToCSharp();
                 else return BuildMethod(args);
             }
         }
@@ -973,12 +984,12 @@ namespace Urb
         private class DefineForm : Functional
         {
             public bool isVariable = false;
-            private VarForm _var;
+            private SetForm _setExpression;
             public DefineForm(object[] args) : base(args)
             {
                 if(!(args[0] is Block))
                 {
-                    _var = new VarForm(args);
+                    _setExpression = new SetForm(args);
                     isVariable = true;
                 }
             }
@@ -986,7 +997,7 @@ namespace Urb
             {
                 if (isVariable)
                 {
-                    return _var.CompileToCSharp();
+                    return _setExpression.CompileToCSharp();
                 }
                 else
                 {
@@ -1010,7 +1021,7 @@ namespace Urb
             public ReturnForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return String.Format("return {0};", SourceEnforce(args, 0));
+                return String.Format("return {0}", SourceEnforce(args, 0));
             }
         }
 
@@ -1031,11 +1042,11 @@ namespace Urb
                 if (args.Length != 2)
                     throw new Exception("malform var: not enough arguments !");
 
-                var name = ((Token)args[0]).ToString();
-                var value = args[1] is Token ?
-                    _buildAtom((Token)args[1]).value : 
+                var name = ((Atom)args[0]).ToString();
+                var value = args[1] is Atom ?
+                    ((Atom)args[1]).value : 
                     _insertPrimitives((Block)args[1]).CompileToCSharp();
-                return String.Format("var {0} = {1};", name, value);
+                return String.Format("var {0} = {1}", name, value);
             }
         }
 
@@ -1189,7 +1200,7 @@ namespace Urb
             public DivideSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("/=", args, isOnlyTwo: true) + ";";
+                return OperatorTree("/=", args, isOnlyTwo: true);
             }
         }
 
@@ -1198,7 +1209,7 @@ namespace Urb
             public MultiplySelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("*=", args, isOnlyTwo: true) + ";";
+                return OperatorTree("*=", args, isOnlyTwo: true);
             }
         }
 
@@ -1207,7 +1218,7 @@ namespace Urb
             public SubSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("-=", args, isOnlyTwo: true) + ";";
+                return OperatorTree("-=", args, isOnlyTwo: true);
             }
         }
 
@@ -1216,7 +1227,7 @@ namespace Urb
             public AddSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return OperatorTree("+=", args, isOnlyTwo: true) + ";";
+                return OperatorTree("+=", args, isOnlyTwo: true);
             }
         }
 

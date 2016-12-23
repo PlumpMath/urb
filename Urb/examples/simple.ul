@@ -44,7 +44,7 @@
     (+= i 1)
     (Console.WriteLine i)
     (if (and (< i 10) (< -1 i) 
-             (or true false)))
+             (or true false))
         (jump Condition))
 	(var result i)
     (Console.WriteLine "Good bye {0} !" result))

@@ -39,7 +39,7 @@ namespace Urb
             var source = File.ReadAllText("../../examples/simple.ul");
 
             // Compiling..
-            uLisp.Compile(source, "demo.dll", isDebugTransform: false);
+            uLisp.Compile(source, "demo.dll", isDebugTransform: true);
 
             //uLisp.Compile(source, "demo.dll", false, true, true);
 
