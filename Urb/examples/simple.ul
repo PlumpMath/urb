@@ -1,14 +1,13 @@
-﻿(load System)
+;;; load .net dll assembly
+(load System)
+
+;;; using it like C# does
 (using System.Collections.Generic)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;					   							 ;;;
-;;; Class description  							 ;;;
-;;;					   							 ;;;
-;;; else, class is public & static by default.   ;;;
-;;;					   							 ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; class inheritance
 (inherit :Object)
+
+;;; class attributes: public, private, static 
 (attribute :public)
 
 ;;; define is naturally public and static.
@@ -17,8 +16,10 @@
 ;;; member will be public without static.
 (member IamAMember "Hello")
 
+;;; generic type just like C# syntax.
 (define dict (new Dictionary<String,String>)) 
 
+;;; params type can just write as below:
 (define (print::void line::string args::params-object[])
  	(Console.WriteLine line args))
         
@@ -26,8 +27,8 @@
     (Console.WriteLine line))
 
 (define (py_text::string x::float y::float z::float)
-	(return 
-		(string.Format
+    (return 
+        (string.Format
             "Pytago: {0}" 
             (+ (* x x)
                (* y y)
