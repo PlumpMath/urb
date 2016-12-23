@@ -206,23 +206,15 @@ namespace Urb
             return _tokenTree;
         }
 
-        private static string ExpressionToCSharp(List<Functional> functions, bool isDebugTransform = false)
+        private static string Expression2CSharp(List<Functional> functions, bool isDebugTransform = false)
         {
             foreach (var function in functions)
             {
                 AddSource(function.CompileToCSharp());
             }
-            /////////////////////////////////////////
-            ///                                   ///
-            /// Print transformed C# source code. ///
-            ///                                   ///
-            /////////////////////////////////////////
-            if (isDebugTransform) Console.WriteLine("\n\n[Transformed C#] \n");
             var csharp_source = new StringBuilder();
             foreach (var line in _csharp_blocks)
             {
-                if (isDebugTransform)
-                    Console.WriteLine(line);
                 csharp_source.Append(line);
                 csharp_source.AppendLine();
             }
@@ -488,7 +480,7 @@ namespace Urb
             }
         }
 
-        private static List<Functional> TokenTreeToExpressions(List<Block> tree)
+        private static List<Functional> TokenTree2Expressions(List<Block> tree)
         {
             /******************************************
 			 * 									      *
@@ -514,15 +506,24 @@ namespace Urb
             var token_list = Reader(source, isDebugTransform, isDebugGrammar);
             var tree = Lexer(token_list, isDebugTransform);
             var expansion = MacroExpand(tree);
-            var expression = TokenTreeToExpressions(expansion);
+            var expression = TokenTree2Expressions(expansion);
             return expression;
         }
 
         public string CompileIntoCSharp
-        (string source, bool isDebugTransform = false, bool isDebugGrammar = false)
+        (string source, string className, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
             var expression = BuildFunctionalTree(source, isDebugTransform, isDebugGrammar);
-            var csharp_source = ExpressionToCSharp(expression, isDebugTransform);
+            var csharp_source = Expression2CSharp(expression, isDebugTransform);
+            csharp_source = MakeClass(className, csharp_source);
+            /////////////////////////////////////////
+            ///                                   ///
+            /// Print transformed C# source code. ///
+            ///                                   ///
+            /////////////////////////////////////////
+            if (isDebugTransform) Console.WriteLine("\n\n[Transformed C#] \n");
+            if (isDebugTransform) { Console.WriteLine(csharp_source); }
+
             return csharp_source;
         }
 
@@ -626,6 +627,39 @@ namespace Urb
 
         #endregion
 
+        #region Class Template
+
+        public static string MakeClass(string name, string body /*some attributes ?*/)
+        {
+            var acc = new StringBuilder();
+            acc.Append(_referenceStatements);
+            /// Title 
+            var title = string.Format(
+                Environment.NewLine + 
+                "{0} class {1}", _classAttributes, name);
+            /// Inheritances
+            if (_classInheritances.Length != 0)
+            {
+                title += string.Format(": {0}", _classInheritances);
+            }
+            acc.Append(title);
+            /// Body
+            acc.Append(string.Format("\n{{{0}\n}}", body));
+
+            _clearClassMetaData();
+            
+            return acc.ToString();
+        }
+
+        private static void _clearClassMetaData()
+        {
+            _referenceStatements.Clear();
+            _classInheritances.Clear();
+            _classAttributes.Clear();
+        }
+
+        #endregion
+
         #region Primitives
         // special form will custom-build its arguments.
         private static Dictionary<string, Type> _specialForms =
@@ -644,8 +678,8 @@ namespace Urb
             {"load",  typeof(LoadForm)},
             {"using",  typeof(UsingForm)},
             {"inherit", typeof(InheritForm)},
-            //{"attribute", typeof(AttributeForm)},
-            //{"begin", typeof(BeginForm)},
+            ///TODO: not yet implemented. ///
+            {"attribute", typeof(AttributeForm)},
             {"new", typeof(NewForm)},
             {"override", typeof(DefoverrideForm)},
             {"return", typeof(ReturnForm)},
@@ -672,6 +706,8 @@ namespace Urb
             {"compile", typeof(CompileDirectiveForm)}
             };
 
+        private static StringBuilder _referenceStatements = new StringBuilder();
+
         private class LoadForm : Functional
         {
             public LoadForm(object[] args) : base(args) { }
@@ -679,7 +715,12 @@ namespace Urb
             {
                 var ns = ((Atom)args[0]).ToString();
                 references.Add(ns);
-                return String.Format("using {0};", ns);
+                _referenceStatements.Append(
+                    Environment.NewLine + 
+                    String.Format("using {0};", ns));
+
+                /// compiled goto _referenceStatement //
+                return String.Empty;
             }
         }
 
@@ -688,22 +729,32 @@ namespace Urb
             public UsingForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return String.Format("using {0};", (Atom)args[0]);
+                _referenceStatements.Append(
+                    Environment.NewLine +
+                String.Format("using {0};", (Atom)args[0]));
+                
+                /// compiled goto _referenceStatement //
+                return String.Empty;
             }
         }
 
-        /// <summary>
+        private static StringBuilder _classInheritances = new StringBuilder();
+
         /// Class-related form should be treat specially as internal task.
-        /// </summary>
         private class InheritForm : Functional
         {
+            /*************************************************
+             * 
+             * (inherit :Object)
+             * 
+             *************************************************/
             public InheritForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 string _targets = "";
-                if (args.Length > 2)
+                if (args.Length > 1)
                 {
-                    for (int i = 1; i < args.Length; i++)
+                    for (int i = 0; i < args.Length; i++)
                     {
                         _targets += ((Atom)args[i]).ToString();
                         // Peak of next element existence. //
@@ -712,9 +763,44 @@ namespace Urb
                 }
                 else
                 {
-                    _targets = ((Atom)args[1]).ToString();
+                    _targets = ((Atom)args[0]).ToString();
                 }
-                return String.Format("{0} : {1}", (Atom)args[0], _targets);
+                _classInheritances.Append(_targets);
+
+                return String.Empty;
+            }
+        }
+
+        private static StringBuilder _classAttributes = new StringBuilder();
+
+        /// Class-related form should be treat specially as internal task.
+        private class AttributeForm : Functional
+        {
+            /*************************************************
+             * 
+             * (attribute :public :static)
+             * 
+             *************************************************/
+            public AttributeForm(object[] args) : base(args) { }
+            public override string CompileToCSharp()
+            {
+                string _targets = "";
+                if (args.Length > 1)
+                {
+                    for (int i = 0; i < args.Length; i++)
+                    {
+                        _targets += ((Atom)args[i]).ToString();
+                        // Peak of next element existence. //
+                        if (i + 1 < args.Length) _targets += " ";
+                    }
+                }
+                else
+                {
+                    _targets = ((Atom)args[0]).ToString();
+                }
+                _classAttributes.Append(_targets);
+
+                return String.Empty;
             }
         }
 
@@ -826,9 +912,7 @@ namespace Urb
              * 
              *************************************************************/
             var name = ((Token)args[0]).Value;
-            var attributes =
-                args.Length == 3 ?
-                _buildAttributes(((Block)args[1]).elements) : "public";
+            var attributes = isStatic ? "public static" : "public";
             var type = "";
             var binding = "";
             var body = args[args.Length - 1];
@@ -850,10 +934,11 @@ namespace Urb
 
         private class SetForm : Functional
         {
-            public SetForm(object[] args) : base(args) { }
+            public bool isStatic = false;
+            public SetForm(object[] args, bool _static) : base(args) { this.isStatic = _static; }
             public override string CompileToCSharp()
             {
-                return SetVariable(args);
+                return SetVariable(args, isStatic);
             }
         }
 
@@ -971,7 +1056,7 @@ namespace Urb
                 {
                     /// just variable ///
                     isVariable = true;
-                    _setExpression = new SetForm(args);
+                    _setExpression = new SetForm(args, _static: false);
                 }
             }
             public override string CompileToCSharp()
@@ -989,7 +1074,7 @@ namespace Urb
             {
                 if(!(args[0] is Block))
                 {
-                    _setExpression = new SetForm(args);
+                    _setExpression = new SetForm(args, _static: true);
                     isVariable = true;
                 }
             }
@@ -1412,7 +1497,7 @@ namespace Urb
         public static Evaluation Eval(List<Block> blocks)
         {
             var expansion = MacroExpand(blocks);
-            var expressions = TokenTreeToExpressions(expansion);
+            var expressions = TokenTree2Expressions(expansion);
             foreach (var function in expressions)
             {
                 _print(
@@ -1568,24 +1653,34 @@ namespace Urb
         public static Assembly Compile(List<Block> blocks)
         {
             var expansion = MacroExpand(blocks);
-            var expressions = TokenTreeToExpressions(expansion);
-            var csharp = ExpressionToCSharp(expressions);
+            var expressions = TokenTree2Expressions(expansion);
+            var csharp = Expression2CSharp(expressions);
+            csharp = MakeClass("ULispCompiled", csharp);
             var asm = _compile_csharp_source(csharp, "eval.dll", isInMemory: true);
             return asm;
         }
 
         public void Compile(string urb_source, string fileName, bool isExe = false, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
-            _reset_state();
-            var _source = CompileIntoCSharp(urb_source, isDebugTransform, isDebugGrammar);
+            _resetCompiler();
+            var _source = CompileIntoCSharp(urb_source, fileName, isDebugTransform, isDebugGrammar);
             _compile_csharp_source(_source, fileName, isExe);
+        }
+
+        public void CompileLoad(string urb_source, string output)
+        {
+            // this part is invoked after we defined new method/class. 
+            // reload our interpreter with new compiled part.
+            var _csharp = CompileIntoCSharp(urb_source, output);
+            var _assembly = _compile_csharp_source(_csharp, output, false, true);
+            AppDomain.CurrentDomain.Load(_assembly.GetName());
         }
 
         private static Assembly _compile_csharp_source(string source, string fileName, bool isExe = false, bool isInMemory = false)
         {
             var compiler_parameter = new CompilerParameters();
             compiler_parameter.GenerateExecutable = isExe;
-            compiler_parameter.OutputAssembly = fileName;
+            compiler_parameter.OutputAssembly = fileName + (isExe ? ".exe" : ".dll");
             compiler_parameter.GenerateInMemory = isInMemory;
             foreach (var name in references)
                 compiler_parameter.ReferencedAssemblies.Add(name + ".dll");
@@ -1614,17 +1709,9 @@ namespace Urb
             }
         }
 
-        public void CompileLoad(string urb_source, string output)
+        private void _resetCompiler()
         {
-            // this part is invoked after we defined new method/class. 
-            // reload our interpreter with new compiled part.
-            var _csharp = CompileIntoCSharp(urb_source);
-            var _assembly = _compile_csharp_source(_csharp, output, false, true);
-            AppDomain.CurrentDomain.Load(_assembly.GetName());
-        }
-
-        private void _reset_state()
-        {
+            _clearClassMetaData();
             _csharp_blocks.Clear();
             _tokenTree.Clear();
             _open = _close = 0;

@@ -8,9 +8,8 @@
 ;;; else, class is public & static by default.   ;;;
 ;;;					   							 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;(inherit :MonoBehaviour)
-;;;(attribute :public)
-
+(inherit :Object)
+(attribute :public)
 
 ;;; define is naturally public and static.
 (define user "deulamco")
