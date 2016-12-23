@@ -14,7 +14,7 @@
 	((n 1 >)
 		( n 1 - acc * n 1 - factorial )
 		(acc)
-		if)
+	if)
 !save
 
 ;;;;;;;;;;;;;;;;;;;;;

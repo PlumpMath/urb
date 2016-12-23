@@ -64,7 +64,7 @@ namespace Urb
             // string " "
             @"(?<string>\"".*\"")|" +
             // pair of a:b
-            @"(?<pair>[a-zA-Z0-9\\_\<\>$_]+:[a-zA-Z0-9,\\_\<\>\[\]$_]+)|" +
+            @"(?<pair>[a-zA-Z0-9\\_$_]+::[a-zA-Z0-9,\\_\<\>\[\]\-$_]+)|" +
 
             // @instant_variable
             @"(?<instance_variable>\@[a-zA-Z0-9$_]+)|" +
@@ -692,6 +692,9 @@ namespace Urb
             }
         }
 
+        /// <summary>
+        /// Class-related form should be treat specially as internal task.
+        /// </summary>
         private class InheritForm : Functional
         {
             public InheritForm(object[] args) : base(args) { }
@@ -897,7 +900,7 @@ namespace Urb
                     if (type.Value != "_")
                         arguments.Append(string.Format(
                             "{0} {1},",
-                            type.Name == "pair" ? type.Value.Replace(':', ' ') : type.Value,
+                            type.Name == "pair" ? type.Value.Replace("::", " ") : type.Value,
                             ((Token)names[i]).Value));
                 }
                 // remove last comma.
@@ -937,28 +940,58 @@ namespace Urb
 
         private class MemberForm : Functional
         {
-            public bool isStatic = false;
+            /// Is non-static by default. ///
+            public bool isVariable = false;
+            private VarForm _var;
+
             public MemberForm(object[] args) : base(args)
             {
+                /// Member is not static. ///
                 // copying...           //
                 this.args = args;
                 // only build the body. //
-                this.args[args.Length - 1] =
-                    _insertPrimitives((Block)this.args[args.Length - 1]);
+                var body = this.args[args.Length - 1];
+                if(body is Block)
+                {
+                    /// This is method ! ///
+                    this.args[args.Length - 1] = _insertPrimitives((Block)body);
+                }
+                else
+                {
+                    /// just variable ///
+                    isVariable = true;
+                    _var = new VarForm(args);
+                }
             }
             public override string CompileToCSharp()
             {
-                return BuildMethod(args);
+                if (isVariable) return _var.CompileToCSharp();
+                else return BuildMethod(args);
             }
         }
 
         private class DefineForm : Functional
         {
-            public bool isStatic = false;
-            public DefineForm(object[] args) : base(args) { }
+            public bool isVariable = false;
+            private VarForm _var;
+            public DefineForm(object[] args) : base(args)
+            {
+                if(!(args[0] is Block))
+                {
+                    _var = new VarForm(args);
+                    isVariable = true;
+                }
+            }
             public override string CompileToCSharp()
             {
-                return BuildMethod(args, isStatic: true);
+                if (isVariable)
+                {
+                    return _var.CompileToCSharp();
+                }
+                else
+                {
+                    return BuildMethod(args, isStatic: true);
+                }
             }
         }
 
@@ -998,9 +1031,10 @@ namespace Urb
                 if (args.Length != 2)
                     throw new Exception("malform var: not enough arguments !");
 
-                var name = ((Atom)args[0]).ToString();
-                var value = args[1].GetType() == typeof(Atom) ?
-                    ((Atom)args[1]).value : SourceEnforce(args, 1);
+                var name = ((Token)args[0]).ToString();
+                var value = args[1] is Token ?
+                    _buildAtom((Token)args[1]).value : 
+                    _insertPrimitives((Block)args[1]).CompileToCSharp();
                 return String.Format("var {0} = {1};", name, value);
             }
         }
