@@ -31,21 +31,21 @@ The work flow:
 		(member im_a_member "Hello")
 		
 		(define (print::void line::string args::params-object[])
-		    (Console/WriteLine line))
+		    (Console.WriteLine line))
 		        
 		(define (print::void line::string)
-		    (Console/WriteLine line))
+		    (Console.WriteLine line))
 
 		(define (test::void)
 		    (var i 0)
 		    (label Condition)
 		    (+= i 1)
-		    (Console/WriteLine i)
+		    (Console.WriteLine i)
 		    (if (and (< i 10) (< -1 i) 
 		             (or true false))
 		        (jump Condition))
 		    (var result i)
-		    (Console/WriteLine "Good bye {0} !" result))
+		    (Console.WriteLine "Good bye {0} !" result))
 
 		(test)
 		(print user)
