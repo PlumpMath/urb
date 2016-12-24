@@ -83,7 +83,7 @@
 ;;;                                                                 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(print "{0} {1} !" message message)
+(print "{0} {1} !" message "message")
 (print "{0}"(factorial 1 10))
 (pytago 1.0f 2.0f 3.0f)
 (test)

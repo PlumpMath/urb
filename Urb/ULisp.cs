@@ -9,6 +9,14 @@ using System.Linq.Expressions;
 
 namespace Urb
 {
+    /***************************************************************************
+     * 
+     * NOTE:
+     * 
+     * - for new function -> compile into new partial class and load to domain.
+     * - for new variable -> instance save on interpreter environment memory.
+     * 
+     ***************************************************************************/
     public class ULisp
     {
         #region Collections
@@ -62,7 +70,7 @@ namespace Urb
             // comma, () and []
             @"(?<separator>,|\(|\)|\[|\])|" +
             // string " "
-            @"(?<string>\"".*\"")|" +
+            @"(?<string>\"".*?\"")|" +
             // pair of a:b
             @"(?<pair>[a-zA-Z0-9,\\_\<\>\[\]\-$_]+::[a-zA-Z0-9,\\_\<\>\[\]\-$_]+)|" +
 
@@ -657,8 +665,7 @@ namespace Urb
             {
                 {"member", typeof(MemberForm)},
                 {"define", typeof(DefineForm)},
-                //{"class", typeof(ClassForm) },
-                //{"set", typeof(SetForm)}
+                {"class", typeof(ClassForm) },
             };
 
         // primitive form will default-build its arguments. //
@@ -668,7 +675,6 @@ namespace Urb
             {"load",  typeof(LoadForm)},
             {"using",  typeof(UsingForm)},
             {"extends", typeof(InheritForm)},
-            ///TODO: not yet implemented. ///
             {"attr", typeof(AttributeForm)},
             {"new", typeof(NewForm)},
             {"override", typeof(DefoverrideForm)},
@@ -1614,8 +1620,8 @@ namespace Urb
          * 
          * :: RULES :: 
          * 
-         * 1. create new statement -> environment static function.
-         * 2. create new function -> environment partial static class.
+         * 1. create new statement -> create/invoke a Main ().
+         * 2. create new function -> into partial static class.
          * 3. create new class -> into our namespace (if not using).
          * 4. create new namespace -> assign as current namespace.
          * 
