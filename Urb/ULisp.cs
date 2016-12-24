@@ -64,7 +64,7 @@ namespace Urb
             // string " "
             @"(?<string>\"".*\"")|" +
             // pair of a:b
-            @"(?<pair>[a-zA-Z0-9\\_$_]+::[a-zA-Z0-9,\\_\<\>\[\]\-$_]+)|" +
+            @"(?<pair>[a-zA-Z0-9,\\_\<\>\[\]\-$_]+::[a-zA-Z0-9,\\_\<\>\[\]\-$_]+)|" +
 
             // @instant_variable
             @"(?<instance_variable>\@[a-zA-Z0-9$_]+)|" +
@@ -159,8 +159,8 @@ namespace Urb
 
         private static string SourceEnforce(object[] args, int index)
         {
-            return args[index].GetType().IsSubclassOf(typeof(Functional)) ?
-                   ((Functional)args[index]).CompileToCSharp()
+            return args[index].GetType().IsSubclassOf(typeof(Expression)) ?
+                   ((Expression)args[index]).CompileToCSharp()
                                   : (string)((Atom)args[index]).value;
         }
 
@@ -206,7 +206,7 @@ namespace Urb
             return _tokenTree;
         }
 
-        private static string Expression2CSharp(List<Functional> functions, bool isDebugTransform = false)
+        private static string Expression2CSharp(List<Expression> functions, bool isDebugTransform = false)
         {
             foreach (var function in functions)
             {
@@ -385,7 +385,7 @@ namespace Urb
 
         #region TokenTree -> Expressions
 
-        private class LiteralForm : Functional
+        private class LiteralForm : Expression
         {
             private string _functionLiteral;
             public LiteralForm(object[] args) : base(args) { }
@@ -421,7 +421,7 @@ namespace Urb
             return acc;
         }
 
-        private static Functional _insertPrimitives(Block block)
+        private static Expression _insertPrimitives(Block block)
         {
             // We plugin all special forms here. //
             if (block.head.GetType() == typeof(Token))
@@ -437,14 +437,14 @@ namespace Urb
                         if (_specialForms.ContainsKey(token.Value))
                         {
                             // mean it's implemented primitive. //
-                            return (Functional)Activator.CreateInstance(
+                            return (Expression)Activator.CreateInstance(
                                 _specialForms[token.Value],
                                 new[] { block.rest });
                         }
                         else if (_primitiveForms.ContainsKey(token.Value))
                         {
                             // mean it's implemented primitive. //
-                            return (Functional)Activator.CreateInstance(
+                            return (Expression)Activator.CreateInstance(
                                 _primitiveForms[token.Value],
                                 new[] { block.evaluatedRest });
                         }
@@ -479,8 +479,8 @@ namespace Urb
                 default: return new Atom(token.Name, token.Value);
             }
         }
-
-        private static List<Functional> TokenTree2Expressions(List<Block> tree)
+        private static List<Expression> _mainBody = new List<Expression>();
+        private static List<Expression> TokenTree2Expressions(List<Block> tree)
         {
             /******************************************
 			 * 									      *
@@ -488,17 +488,24 @@ namespace Urb
 			 * Here we refactor tokenized expression. *
 			 * 									   	  *
 			 ******************************************/
-            var result = new List<Functional>();
+            var result = new List<Expression>();
             foreach (var block in tree)
             {
                 // inserting primitives....               //
-                var expression = _insertPrimitives(block);
-                result.Add(expression);
+                var _codeBlock = _insertPrimitives(block);
+                if(_codeBlock is LiteralForm)
+                {
+                    /// then it belong to Main ():
+                    _mainBody.Add(_codeBlock);
+                }
+                else {
+                    result.Add(_codeBlock);
+                }
             }
             return result;
         }
 
-        public static List<Functional> BuildFunctionalTree
+        public static List<Expression> Source2Expressions
         (string source, bool isDebugTransform = false, bool isDebugGrammar = false)
         {
             _print(_nTimes("_", 80));
@@ -510,29 +517,12 @@ namespace Urb
             return expression;
         }
 
-        public string CompileIntoCSharp
-        (string source, string className, bool isDebugTransform = false, bool isDebugGrammar = false)
-        {
-            var expression = BuildFunctionalTree(source, isDebugTransform, isDebugGrammar);
-            var csharp_source = Expression2CSharp(expression, isDebugTransform);
-            csharp_source = MakeClass(className, csharp_source);
-            /////////////////////////////////////////
-            ///                                   ///
-            /// Print transformed C# source code. ///
-            ///                                   ///
-            /////////////////////////////////////////
-            if (isDebugTransform) Console.WriteLine("\n\n[Transformed C#] \n");
-            if (isDebugTransform) { Console.WriteLine(csharp_source); }
-
-            return csharp_source;
-        }
-
         private static int _transformerIndex = 0;
 
-        public abstract class Functional
+        public abstract class Expression
         {
             public object[] args;
-            public Functional(object[] _args)
+            public Expression(object[] _args)
             {
                 args = _args;
             }
@@ -677,9 +667,9 @@ namespace Urb
             {
             {"load",  typeof(LoadForm)},
             {"using",  typeof(UsingForm)},
-            {"inherit", typeof(InheritForm)},
+            {"extends", typeof(InheritForm)},
             ///TODO: not yet implemented. ///
-            {"attribute", typeof(AttributeForm)},
+            {"attr", typeof(AttributeForm)},
             {"new", typeof(NewForm)},
             {"override", typeof(DefoverrideForm)},
             {"return", typeof(ReturnForm)},
@@ -708,7 +698,7 @@ namespace Urb
 
         private static StringBuilder _referenceStatements = new StringBuilder();
 
-        private class LoadForm : Functional
+        private class LoadForm : Expression
         {
             public LoadForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -724,7 +714,7 @@ namespace Urb
             }
         }
 
-        private class UsingForm : Functional
+        private class UsingForm : Expression
         {
             public UsingForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -741,7 +731,7 @@ namespace Urb
         private static StringBuilder _classInheritances = new StringBuilder();
 
         /// Class-related form should be treat specially as internal task.
-        private class InheritForm : Functional
+        private class InheritForm : Expression
         {
             /*************************************************
              * 
@@ -774,7 +764,7 @@ namespace Urb
         private static StringBuilder _classAttributes = new StringBuilder();
 
         /// Class-related form should be treat specially as internal task.
-        private class AttributeForm : Functional
+        private class AttributeForm : Expression
         {
             /*************************************************
              * 
@@ -784,21 +774,34 @@ namespace Urb
             public AttributeForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                string _targets = "";
+                var attributes = String.Empty;
                 if (args.Length > 1)
                 {
                     for (int i = 0; i < args.Length; i++)
                     {
-                        _targets += ((Atom)args[i]).ToString();
-                        // Peak of next element existence. //
-                        if (i + 1 < args.Length) _targets += " ";
+                        var attribute = ((Atom)args[i]).ToString();
+                        /******************************************
+                         * 
+                         * We should filter attributes there.
+                         * 
+                         *****************************************/
+                        if (_compilingOptions.Contains(attribute))
+                        {
+                            _compilingExe = attribute == _compilingOptions[0];
+                        }
+                        else
+                        {
+                            attributes += attribute;
+                            // Peak of next element existence. //
+                            if (i + 1 < args.Length) attributes += " ";
+                        }
                     }
                 }
                 else
                 {
-                    _targets = ((Atom)args[0]).ToString();
+                    attributes = ((Atom)args[0]).ToString();
                 }
-                _classAttributes.Append(_targets);
+                _classAttributes.Append(attributes);
 
                 return String.Empty;
             }
@@ -841,7 +844,7 @@ namespace Urb
 
         }
 
-        private class ClassForm : Functional
+        private class ClassForm : Expression
         {
             public ClassForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -851,14 +854,14 @@ namespace Urb
         }
 
         private static int _beginLevel = 0;
-        private class BeginForm : Functional
+        private class BeginForm : Expression
         {
             public BeginForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
                 _beginLevel++;
                 var builder = new StringBuilder();
-                foreach (Functional function in args)
+                foreach (Expression function in args)
                 {
                     // just to hot fix //
                     if (function != null)
@@ -870,7 +873,7 @@ namespace Urb
             }
         }
 
-        private class NewForm : Functional
+        private class NewForm : Expression
         {
             public StringBuilder type = new StringBuilder();
             public NewForm(object[] args) : base(args)
@@ -890,7 +893,7 @@ namespace Urb
                     if (args[i].GetType() != typeof(Atom))
                         // append all constructor args //
                         constructorArgs.Append(
-                            ((Functional)args[i])
+                            ((Expression)args[i])
                                 .CompileToCSharp() +
                             (i + 1 < args.Length ? ", " : ""));
                 }
@@ -911,7 +914,7 @@ namespace Urb
              * 3. value
              * 
              *************************************************************/
-            var name = ((Token)args[0]).Value;
+            var name = _buildAtom(args[0] as Token).value;
             var attributes = isStatic ? "public static" : "public";
             var type = "";
             var binding = "";
@@ -932,7 +935,7 @@ namespace Urb
 
         }
 
-        private class SetForm : Functional
+        private class SetForm : Expression
         {
             public bool isStatic = false;
             public SetForm(object[] args, bool _static) : base(args) { this.isStatic = _static; }
@@ -942,7 +945,7 @@ namespace Urb
             }
         }
 
-        private static string[] Pair(Token token)
+        private static string[] _pair(Token token)
         {
             var acc = token.Value.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries);
             for(int i = 0; i < acc.Length; i++)
@@ -954,14 +957,13 @@ namespace Urb
             }
             return acc;
         }
-
-
-        private static string[] Pair(Atom atom)
+        
+        private static string[] _pair(Atom atom)
         {
             return atom.value.ToString().Split(new char[] { ':' });
         }
 
-        private static string BuildMethod
+        private static string _buildMethod
         (object[] args, bool isStatic = false, bool isOverride = false)
         {
             /**************************************************
@@ -975,12 +977,11 @@ namespace Urb
 			 * 
 			 **************************************************/
             var signature = ((Block)args[0]);
-            var _head = Pair(signature.head as Token);
+            var _head = _pair(signature.head as Token);
             var name = _head[0];
             var returnType = _head[1];
-            
+            /// Build parameters..
             var arguments = new StringBuilder();
-            // matching arguments...//
             if (signature.elements.Count > 1)
             {
                 foreach(Token parameter in signature.elements)
@@ -988,25 +989,16 @@ namespace Urb
                     if (!parameter.Value.Contains(name))
                     {
                         arguments.Append(string.Format(
-                                " {1} {0},", Pair(parameter)));
+                                " {1} {0},", _pair(parameter)));
                     }
                 }
             }
-                // remove last comma.
-                if (arguments.Length > 0)
-                    arguments.Remove(arguments.Length - 1, 1);
-
-            /// Body processing... ///
-            var body = new StringBuilder();
-            for(int i = 1; i < args.Length; i++){
-                var _function = _insertPrimitives(args[i] as Block);
-                body.Append(
-                    Environment.NewLine +
-                    _function.CompileToCSharp() + 
-                    ///TODO: We ignore some forms here ///
-                    (_function is LabelForm ? "" : ";"));
-            } 
-            // do some processing .. //
+            // remove last comma.
+            if (arguments.Length > 0)
+                arguments.Remove(arguments.Length - 1, 1);
+            /// Body processing... 
+            var body = _buildBody(args);
+            /// Finalizing ..  
             var commit = new string[] {
                 "public" + (isStatic ? " static" : ""),
                 returnType == "ctor" ? "" : returnType,
@@ -1017,6 +1009,31 @@ namespace Urb
             /* we add newline before new function. */
             return String.Format("\n{0} {1} {2} ({3}) {{{4}\n}}", commit);
 
+        }
+
+        private static string _buildBody(Block list, int startIndex = 1)
+        {
+            return _buildBody(list.elements.ToArray(), startIndex);
+        }
+
+        private static string _buildBody(object[] list, int startIndex = 1)
+        {
+            /// Body processing... ///
+            var body = new StringBuilder();
+            for (int i = startIndex; i < list.Length; i++)
+            {
+                var _function = _insertPrimitives(list[i] as Block);
+                body.Append(_buildStatement(_function));
+            }
+            return body.ToString();
+        }
+
+        private static string _buildStatement(Expression _function)
+        {
+            return Environment.NewLine +
+                    _function.CompileToCSharp() +
+                    ///TODO: We ignore some forms here ///
+                    (_function is LabelForm ? "" : ";");
         }
 
         private static string _buildAttributes(List<object> _attributes)
@@ -1034,7 +1051,7 @@ namespace Urb
             return attributes.ToString();
         }
 
-        private class MemberForm : Functional
+        private class MemberForm : Expression
         {
             /// Is non-static by default. ///
             public bool isVariable = false;
@@ -1062,11 +1079,11 @@ namespace Urb
             public override string CompileToCSharp()
             {
                 if (isVariable) return _setExpression.CompileToCSharp();
-                else return BuildMethod(args);
+                else return _buildMethod(args);
             }
         }
 
-        private class DefineForm : Functional
+        private class DefineForm : Expression
         {
             public bool isVariable = false;
             private SetForm _setExpression;
@@ -1086,22 +1103,22 @@ namespace Urb
                 }
                 else
                 {
-                    return BuildMethod(args, isStatic: true);
+                    return _buildMethod(args, isStatic: true);
                 }
             }
         }
 
-        private class DefoverrideForm : Functional
+        private class DefoverrideForm : Expression
         {
             public bool isStatic = false;
             public DefoverrideForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return BuildMethod(args, isOverride: true);
+                return _buildMethod(args, isOverride: true);
             }
         }
 
-        private class ReturnForm : Functional
+        private class ReturnForm : Expression
         {
             public ReturnForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1110,7 +1127,7 @@ namespace Urb
             }
         }
 
-        private class LabelForm : Functional
+        private class LabelForm : Expression
         {
             public LabelForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1119,7 +1136,7 @@ namespace Urb
             }
         }
 
-        private class VarForm : Functional
+        private class VarForm : Expression
         {
             public VarForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1135,18 +1152,44 @@ namespace Urb
             }
         }
 
-        private class IfForm : Functional
+        private class IfForm : Expression
         {
+            /**************************************************
+             * 
+             * IF FORM:
+             * 
+             * (if (cond) 
+             *     (true) 
+             *     (false))
+             * 
+             **************************************************/
             public IfForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
+                /// Condition:
                 var condition = SourceEnforce(args, 0);
-                var body = SourceEnforce(args, 1);
-                return String.Format("if ({0}) {{\n{1}\n}}", condition, body);
+                var trueExpression = string.Empty;
+                var falseExpression = string.Empty;
+                /// True/False case
+                if (args.Length > 1) {
+                    trueExpression= _buildStatement(args[1] as Expression);
+                }
+                if (args.Length > 2) {
+                    falseExpression= _buildStatement(args[2] as Expression);
+                }
+                if (args.Length > 3)
+                {
+                    throw new Exception("Malform If clause (if cond true false)");
+                }
+                return String.Format(
+                    "if ({0}) {{{1}\n}}" +
+                    Environment.NewLine + 
+                    (args.Length == 3 ? "else {{{2}\n}}" : ""), 
+                    condition, trueExpression, falseExpression);
             }
         }
 
-        private class OrForm : Functional
+        private class OrForm : Expression
         {
             public OrForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1155,7 +1198,7 @@ namespace Urb
             }
         }
 
-        private class AndForm : Functional
+        private class AndForm : Expression
         {
             public AndForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1166,7 +1209,7 @@ namespace Urb
 
         #region Operators
 
-        private class AssignmentForm : Functional
+        private class AssignmentForm : Expression
         {
             public AssignmentForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1198,7 +1241,7 @@ namespace Urb
         }
 
 
-        private class DivideOperatorForm : Functional
+        private class DivideOperatorForm : Expression
         {
             public DivideOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1207,7 +1250,7 @@ namespace Urb
             }
         }
 
-        private class MultiplyOperatorForm : Functional
+        private class MultiplyOperatorForm : Expression
         {
             public MultiplyOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1216,7 +1259,7 @@ namespace Urb
             }
         }
 
-        private class SubOperatorForm : Functional
+        private class SubOperatorForm : Expression
         {
             public SubOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1225,7 +1268,7 @@ namespace Urb
             }
         }
 
-        private class AddOperatorForm : Functional
+        private class AddOperatorForm : Expression
         {
             public AddOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1243,7 +1286,7 @@ namespace Urb
         }
 
         // need a type analyzing... //
-        private static Type Analyze(Functional f)
+        private static Type Analyze(Expression f)
         {
             return typeof(object);
         }
@@ -1258,29 +1301,29 @@ namespace Urb
         {
             //TODO: re-use delegate!
             // declare the parameters
-            ParameterExpression paramA = Expression.Parameter(typeof(T), "a"),
-                paramB = Expression.Parameter(typeof(T), "b");
+            ParameterExpression paramA = System.Linq.Expressions.Expression.Parameter(typeof(T), "a"),
+                paramB = System.Linq.Expressions.Expression.Parameter(typeof(T), "b");
             // add the parameters together
             BinaryExpression body;
             switch (op)
             {
-                case Operator.Add: body = Expression.Add(paramA, paramB); break;
-                case Operator.Sub: body = Expression.Subtract(paramA, paramB); break;
-                case Operator.Div: body = Expression.Divide(paramA, paramB); break;
-                case Operator.Mul: body = Expression.Multiply(paramA, paramB); break;
-                case Operator.AddSelf: body = Expression.AddAssign(paramA, paramB); break;
-                case Operator.SubSelf: body = Expression.SubtractAssign(paramA, paramB); break;
-                case Operator.MulSelf: body = Expression.MultiplyAssign(paramA, paramB); break;
-                case Operator.DivSelf: body = Expression.DivideAssign(paramA, paramB); break;
+                case Operator.Add: body = System.Linq.Expressions.Expression.Add(paramA, paramB); break;
+                case Operator.Sub: body = System.Linq.Expressions.Expression.Subtract(paramA, paramB); break;
+                case Operator.Div: body = System.Linq.Expressions.Expression.Divide(paramA, paramB); break;
+                case Operator.Mul: body = System.Linq.Expressions.Expression.Multiply(paramA, paramB); break;
+                case Operator.AddSelf: body = System.Linq.Expressions.Expression.AddAssign(paramA, paramB); break;
+                case Operator.SubSelf: body = System.Linq.Expressions.Expression.SubtractAssign(paramA, paramB); break;
+                case Operator.MulSelf: body = System.Linq.Expressions.Expression.MultiplyAssign(paramA, paramB); break;
+                case Operator.DivSelf: body = System.Linq.Expressions.Expression.DivideAssign(paramA, paramB); break;
                 default: throw new NotImplementedException();
             }
             // compile it
-            Func<T, T, T> f = Expression.Lambda<Func<T, T, T>>(body, paramA, paramB).Compile();
+            Func<T, T, T> f = System.Linq.Expressions.Expression.Lambda<Func<T, T, T>>(body, paramA, paramB).Compile();
             // call it
             return f(a, b);
         }
 
-        private class DivideSelfOperatorForm : Functional
+        private class DivideSelfOperatorForm : Expression
         {
             public DivideSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1289,7 +1332,7 @@ namespace Urb
             }
         }
 
-        private class MultiplySelfOperatorForm : Functional
+        private class MultiplySelfOperatorForm : Expression
         {
             public MultiplySelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1298,7 +1341,7 @@ namespace Urb
             }
         }
 
-        private class SubSelfOperatorForm : Functional
+        private class SubSelfOperatorForm : Expression
         {
             public SubSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1307,7 +1350,7 @@ namespace Urb
             }
         }
 
-        private class AddSelfOperatorForm : Functional
+        private class AddSelfOperatorForm : Expression
         {
             public AddSelfOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1316,7 +1359,7 @@ namespace Urb
             }
         }
 
-        private class LesserOperatorForm : Functional
+        private class LesserOperatorForm : Expression
         {
             public LesserOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1325,7 +1368,7 @@ namespace Urb
             }
         }
 
-        private class BiggerOperatorForm : Functional
+        private class BiggerOperatorForm : Expression
         {
             public BiggerOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1334,7 +1377,7 @@ namespace Urb
             }
         }
 
-        private class EqualOperatorForm : Functional
+        private class EqualOperatorForm : Expression
         {
             public EqualOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1343,7 +1386,7 @@ namespace Urb
             }
         }
 
-        private class LesserEqualOperatorForm : Functional
+        private class LesserEqualOperatorForm : Expression
         {
             public LesserEqualOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1352,7 +1395,7 @@ namespace Urb
             }
         }
 
-        private class BiggerEqualOperatorForm : Functional
+        private class BiggerEqualOperatorForm : Expression
         {
             public BiggerEqualOperatorForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
@@ -1363,16 +1406,16 @@ namespace Urb
 
         #endregion
 
-        private class JumpDirectiveForm : Functional
+        private class JumpDirectiveForm : Expression
         {
             public JumpDirectiveForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return String.Format("goto {0};", (Atom)args[0]);
+                return String.Format("goto {0}", (Atom)args[0]);
             }
         }
 
-        private class CompileDirectiveForm : Functional
+        private class CompileDirectiveForm : Expression
         {
             public CompileDirectiveForm(object[] args) : base(args) { }
 
@@ -1392,6 +1435,43 @@ namespace Urb
                 return null;
             }
         }
+        #endregion
+
+        #region Type Inferfence
+        /// <summary>
+        /// Where the awesome begin :D
+        /// </summary>
+
+
+        #endregion
+
+        #region Main () collector
+        private static string _buildMain(List<Expression> statements)
+        {
+            if (statements.Count == 0) return String.Empty;
+
+            var body = new StringBuilder();
+
+            foreach(var statement in statements)
+            {
+                body.Append(
+                    _buildStatement(statement));
+            }
+
+            var final = string.Format(
+                "public static void Main(string[] args)"
+                + Environment.NewLine +
+                "{{" +
+                    "{0}"
+                + Environment.NewLine +
+                "}}", body.ToString());
+   
+            /// Flush cache.
+            statements.Clear();
+   
+            return final;
+        }
+
         #endregion
 
         #region Interpreter
@@ -1592,7 +1672,7 @@ namespace Urb
 
         #region Viewers
 
-        public static void Traverse(List<Functional> tree)
+        public static void Traverse(List<Expression> tree)
         {
             _print(_nTimes("_", 80));
             _print("* Evaluating tree.... *");
@@ -1602,16 +1682,16 @@ namespace Urb
             }
         }
 
-        public static string Traverse(Functional function)
+        public static string Traverse(Expression function)
         {
             var acc = new StringBuilder();
             var args = new StringBuilder();
             foreach (var arg in function.args)
             {
                 //_print("{0} ", arg.GetType().Name);
-                if (arg.GetType().IsSubclassOf(typeof(Functional)))
+                if (arg.GetType().IsSubclassOf(typeof(Expression)))
                 {
-                    args.Append("\n" + Traverse(arg as Functional) + " ");
+                    args.Append("\n" + Traverse(arg as Expression) + " ");
                 }
                 else
                 {
@@ -1625,7 +1705,7 @@ namespace Urb
 
         public static void ViewTree(string source)
         {
-            Traverse(BuildFunctionalTree(source));
+            Traverse(Source2Expressions(source));
         }
 
         #endregion
@@ -1654,9 +1734,10 @@ namespace Urb
         {
             var expansion = MacroExpand(blocks);
             var expressions = TokenTree2Expressions(expansion);
-            var csharp = Expression2CSharp(expressions);
-            csharp = MakeClass("ULispCompiled", csharp);
-            var asm = _compile_csharp_source(csharp, "eval.dll", isInMemory: true);
+            var csharp_source = Expression2CSharp(expressions);
+            csharp_source = MakeClass("ULispCompiled", csharp_source);
+            csharp_source = _buildMain(_mainBody);
+            var asm = _compile_csharp_source(csharp_source, "eval.dll", isInMemory: true);
             return asm;
         }
 
@@ -1667,20 +1748,43 @@ namespace Urb
             _compile_csharp_source(_source, fileName, isExe);
         }
 
+        public string CompileIntoCSharp
+        (string source, string className, bool isDebugTransform = false, bool isDebugGrammar = false)
+        {
+            var expressions = Source2Expressions(source, isDebugTransform, isDebugGrammar);
+            var csharp_source = Expression2CSharp(expressions, isDebugTransform);
+            csharp_source += _buildMain(_mainBody);
+            csharp_source = MakeClass(className, csharp_source);
+            /////////////////////////////////////////
+            ///                                   ///
+            /// Print transformed C# source code. ///
+            ///                                   ///
+            /////////////////////////////////////////
+            if (isDebugTransform) Console.WriteLine("\n\n[Transformed C#] \n");
+            if (isDebugTransform) { Console.WriteLine(csharp_source); }
+
+            return csharp_source;
+        }
+
         public void CompileLoad(string urb_source, string output)
         {
             // this part is invoked after we defined new method/class. 
             // reload our interpreter with new compiled part.
             var _csharp = CompileIntoCSharp(urb_source, output);
-            var _assembly = _compile_csharp_source(_csharp, output, false, true);
+            var _assembly = _compile_csharp_source(_csharp, output, true);
             AppDomain.CurrentDomain.Load(_assembly.GetName());
         }
 
-        private static Assembly _compile_csharp_source(string source, string fileName, bool isExe = false, bool isInMemory = false)
+        private static readonly List<string> _compilingOptions = new List<string>()
+        {
+            "executable", "library"
+        };
+        private static bool _compilingExe = false;
+        private static Assembly _compile_csharp_source(string source, string fileName, bool isInMemory = false)
         {
             var compiler_parameter = new CompilerParameters();
-            compiler_parameter.GenerateExecutable = isExe;
-            compiler_parameter.OutputAssembly = fileName + (isExe ? ".exe" : ".dll");
+            compiler_parameter.GenerateExecutable = _compilingExe;
+            compiler_parameter.OutputAssembly = fileName + (_compilingExe ? ".exe" : ".dll");
             compiler_parameter.GenerateInMemory = isInMemory;
             foreach (var name in references)
                 compiler_parameter.ReferencedAssemblies.Add(name + ".dll");
