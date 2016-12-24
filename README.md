@@ -1,15 +1,18 @@
 # ULISP
 Stay for micro lisp. 
-A minimal Unity-compatible lisp language inpired by lisp/ruby/forth.
+A minimal Unity-compatible lisp language inpired by lisp/ruby/forth/ML.
 
 ####1. Intend
- - a thin-layer of code transformation between csharp and common lisp, with mix of ruby warmmy code style. 
+ - a thin-layer of code transformation between csharp and common lisp, type-inference/pattern matching of ML, with mix of ruby warmmy code style. 
  
 ####2. Core Features
+ - simple.
  - lisp macros.
+ - type inference.
+ - interactive + compiled.
  - ruby clean syntax style.
- - remain csharp familiar keywords.
- - maximum .net Framework compatibility.
+ - csharp familiar keywords.
+ - .net Framework compatibility.
  - Unity editor intergration.
 
 ####3. Mechanism
@@ -28,29 +31,27 @@ The work flow:
 		(extends :Object)
 
 		(define user "deulamco")
-		(member im_a_member "Hello")
 		
-		(define (print::void line::string args::params-object[])
-		    (Console.WriteLine line))
-		        
-		(define (print::void line::string)
-		    (Console.WriteLine line))
-
-		(define (test::void)
+		(define (print line::string args::params-object[])
+		    (Console.WriteLine line args))
+	
+		(define (test)
 		    (var i 0)
 		    (label Condition)
 		    (+= i 1)
-		    (Console.WriteLine i)
-		    (if (and (< i 10) (< -1 i) 
+		    (print i)
+		    (if (and (< i 10) 
+		    	     (< -1 i) 
 		             (or true false))
-		        (jump Condition))
-		    (var result i)
-		    (Console.WriteLine "Good bye {0} !" result))
-
+		        (jump Condition)
+			(print "end at {0}" i)))
+			
 		(test)
-		(print user)
+		(print "Hello {0} !" user)
 
-I was experiment with all language samples transformation that can be translated into the same C# source. Just to find a way to express my thought style the most into programming. So in the end, I borrow from them all the characteristic I like the most.
+for real working sample, look into \example. 
+It's already able to be compiled and use under Unity as component. 
+Though, it need more time to be ready for something serious.
 
 Certainly, this is still experiment.
  You will know when it's ready. 
