@@ -40,9 +40,11 @@
 
 (define :dict (new Dictionary<String,String>)) 
 
-(define (print::void line::string args::params-object[])
+;;; type inference: automatically "void" when got no info or return.
+(define (print line::string args::params-object[])
  	(Console.WriteLine line args))
-        
+
+;;; type inference: return type linking.        
 (define (print line::string)
     (Console.WriteLine line)
 	(return false))
@@ -52,6 +54,9 @@
         (return (factorial (* acc n) (- n 1)))
         (return acc)))
 
+;;; the next hard-case for type inference to refine:
+;;; require interop.
+
 (define (py_text::string x::float y::float z::float)
 	(return 
 		(string.Format
@@ -60,11 +65,15 @@
                (* y y)
                (* z z)))))
 
-(define (pytago::void x::float y::float z::float)
+
+;;; this case will prove local function linking for type inference:
+;;; also require function to be better inform.
+
+(define (pytago x::float y::float z::float)
     (dict.Clear)
     (print (py_text x y z)))
         
-(define (test::void)
+(define (test)
     (var i 0)
     (label Condition)
     (+= i 1)
