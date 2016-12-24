@@ -527,8 +527,19 @@ namespace Urb
 
         private static int _transformerIndex = 0;
 
+        public enum AbstractType
+        {
+            Numberic,
+            String,
+            Struct,
+            Instance,
+            Undefined,
+            Custom
+        }
+
         public abstract class Expression
         {
+            public AbstractType abstractType = AbstractType.Undefined;
             public object[] args;
             public Expression(object[] _args)
             {
@@ -703,10 +714,16 @@ namespace Urb
             };
 
         private static StringBuilder _referenceStatements = new StringBuilder();
+        private static List<string> _loadedReferences = new List<string>() { "mscorlib" };
+        private static List<string> _usingNamespaces = new List<string>();
 
         private class LoadForm : Expression
         {
-            public LoadForm(object[] args) : base(args) { }
+            public LoadForm(object[] args) : base(args)
+            {
+                _loadedReferences.Add(args[0].ToString());
+                _usingNamespaces.Add(args[0].ToString());
+            }
             public override string CompileToCSharp()
             {
                 var ns = ((Atom)args[0]).ToString();
@@ -722,14 +739,16 @@ namespace Urb
 
         private class UsingForm : Expression
         {
-            public UsingForm(object[] args) : base(args) { }
+            public UsingForm(object[] args) : base(args)
+            {
+                _usingNamespaces.Add(args[0].ToString());
+            }
             public override string CompileToCSharp()
             {
+                /// compiled goto _referenceStatement //        
                 _referenceStatements.Append(
                     Environment.NewLine +
                 String.Format("using {0};", (Atom)args[0]));
-                
-                /// compiled goto _referenceStatement //
                 return String.Empty;
             }
         }
@@ -744,7 +763,8 @@ namespace Urb
              * (inherit :Object)
              * 
              *************************************************/
-            public InheritForm(object[] args) : base(args) { }
+            public InheritForm(object[] args) : base(args){}
+
             public override string CompileToCSharp()
             {
                 string _targets = "";
@@ -994,8 +1014,7 @@ namespace Urb
                 {
                     if (!parameter.Value.Contains(name))
                     {
-                        arguments.Append(string.Format(
-                                " {1} {0},", _pair(parameter)));
+                        arguments.Append(string.Format(" {1} {0},", _pair(parameter)));
                     }
                 }
             }
@@ -1088,11 +1107,181 @@ namespace Urb
                 else return _buildMethod(args);
             }
         }
+         
+        private static Dictionary<string, Token> _typeInference (Dictionary<string, Token> _parameters, Block _body)
+        {
+            var _dict = new Dictionary<string, Token>();
+            foreach(string name in _parameters.Keys)
+            {                          
+                /// search for the name.
+                var _type = _parameters[name].Name;
+                _type = _searchFor(name, _body, _type);
+                _dict.Add(name, new Token(_type, name));
+                Console.WriteLine("got {0} for {1}.\n", _type, name);
+            }
+            return _dict;
+            //throw new NotImplementedException();
+        }
+
+        private static List<string> _allReferencesCache()
+        {
+            /// need caching whole namespace things !
+            var _dict = new List<string>();
+            foreach (var _reference in _loadedReferences)
+            {
+                var _asm = Assembly.Load(_reference);
+                var _types = _asm.GetExportedTypes();
+                foreach (var t in _types)
+                {
+                    //_print("\n{0}", t.FullName);
+                    _dict.Add(t.FullName);
+                    foreach (var member in t.GetMembers(BindingFlags.Public))
+                    {
+                        _dict.Add(member.Name);
+                    }
+                }
+            }
+            return _dict;
+        }
+
+        private static List<string> _findMethodCandidates(string _methodName, List<string> _candidates, object[] _tree, int _position)
+        {                                            
+            var _typeCandidates = new List<string>();
+
+            foreach (var _candidate in _candidates)
+            {
+                _print("\nfor candidate: {0}", _candidate);
+
+                var _class = Type.GetType(_candidate);
+                var _methods = _class.GetMethods();
+
+                /// caching methods to find
+                foreach (var _method in _methods)
+                {
+                    if (_method.Name == _methodName)
+                    {
+                        var _parameters = _method.GetParameters();
+                        if (_parameters.Length == _tree.Length - 1)
+                        {
+                            Console.Write("\n  {0} : ", _methodName);
+                            foreach (var _parameter in _parameters)
+                            {
+                                Console.Write("{0} ", _parameter.ParameterType.Name);
+                            }
+                            _typeCandidates.Add(_parameters[_position - 1].ParameterType.Name);
+
+                        }
+                    }
+                }
+                _print("Got candidates:\n");
+                foreach (var _typeCandi in _typeCandidates)
+                    _print("{0}\n", _typeCandi);
+
+            }
+            return _typeCandidates;
+        }
+
+        private static List<string> _typeCandidates(string _f, object[] _tree, int _position)
+        {
+            /// mean it's from .NET:
+            /// break into -> _method + _ns
+            var _lastIndex = _f.LastIndexOf(".");
+            var _methodName = _f.Substring(_lastIndex + 1);
+            var _className = _f.Replace("." + _methodName, "");
+            _print("broken into: {0} : {1}", _className, _methodName);
+            /// Get current references cache:
+            var _dict = _allReferencesCache();
+            _print("\ncached all using references.\n");
+            /// Get all possible candidate CLASS by using namespace:
+            var _candidates = new List<string>();
+            foreach (var _namespace in _usingNamespaces)
+            {
+                var _a = _namespace + "." + _className;
+
+                if (_dict.Contains(_a))
+                {
+                    _print("candidate: {0}", _a);
+                    _candidates.Add(_a);
+                }
+            }
+            /// Get possible types from method's parameters:
+            var _typeCandidates = _findMethodCandidates(_methodName, _candidates, _tree, _position);
+            return _typeCandidates;
+        }
+
+        private static string _searchFor(string name, Block _body, string _type)
+        {
+            var _tree = _body.elements.ToArray();
+            for(int i = 0; i < _tree.Length; i++)
+            {
+                if (_tree[i] is Token)
+                {
+                    var token = _tree[i] as Token;
+                    Console.WriteLine("scanning: '{0}' -> '{1}'", token.Value, name);
+                    if (token.Value == name)
+                    {
+                        Console.WriteLine("'{0}' is used by '{1}'.", name, (_tree[0] as Token).Value);
+                        var _f = (_tree[0] as Token).Value;
+                        if (_f.Contains("."))
+                        {
+                            var result = _typeCandidates(_f, _tree, i);
+                            if (result.Count > 0 || result.Count == 0)
+                            {
+                                _print("can't determine type using !");
+                                throw new Exception();
+                            }
+                            else return result[0];
+                        }
+                        else
+                        {
+                            var _abstract = ((Expression)Activator.CreateInstance(
+                                _primitiveForms[_f],new [] { new object[] { } })).abstractType;
+                            switch (_abstract)
+                            {
+                                case AbstractType.Numberic:
+                                    /// as pure numeric:
+                                    var neighbourCandidates = new List<string>();
+                                    var l = new List<object>(_tree);
+                                    l.Remove(l[0]);
+                                    l.Remove(_tree[i]);
+                                    if (l.Count > 0)
+                                    {
+                                        foreach (var neighbour in l)
+                                        {
+                                            if (neighbour is Token)
+                                            {
+                                                var _n = neighbour as Token;
+                                                _print("neighbour type {0}:{1}.\n", _n.Name, _n.Value);
+                                                neighbourCandidates.Add(_n.Name);
+                                            }
+                                            else
+                                                return _searchFor(name, _body, _type);
+                                        }
+                                        return neighbourCandidates[0];
+                                    }
+                                    break;
+                                default: throw new NotImplementedException();
+                            }
+                            /// it's from our land, perhaps!
+                            throw new NotImplementedException();
+                        }
+                    }
+                }
+                else if(_tree[i] is Block)
+                {
+                    return _searchFor(name, _tree[i] as Block, _type);
+                }
+            }
+            return "depend on something else";   
+            //throw new NotImplementedException();
+        }
 
         private class DefineForm : Expression
         {
             public bool isVariable = false;
             private SetForm _setExpression;
+            private Dictionary<string, Token> _parameters;
+            private Block _body;
             public DefineForm(object[] args) : base(args)
             {
                 if(!(args[0] is Block))
@@ -1100,7 +1289,27 @@ namespace Urb
                     _setExpression = new SetForm(args, _static: true);
                     isVariable = true;
                 }
+                else
+                {
+                    /// filtering data
+                    _parameters = new Dictionary<string, Token>();
+                    foreach(Token parameter in (args[0] as Block).elements)
+                    {
+                        ///TODO: consider it's pretty unknown.
+                        if( parameter.Name != "pair" &&
+                            parameter.Value!= ((args[0] as Block).head as Token).Value)
+                        _parameters.Add(parameter.Value, parameter);
+                    }
+                    _body = args[1] as Block;
+
+                    /// Now replacing with type inference:
+                    _parameters = _typeInference(_parameters, _body);
+                    /// Fuse type -> name
+                    /// somewhat here.
+                }
+
             }
+
             public override string CompileToCSharp()
             {
                 if (isVariable)
@@ -1249,7 +1458,7 @@ namespace Urb
 
         private class DivideOperatorForm : Expression
         {
-            public DivideOperatorForm(object[] args) : base(args) { }
+            public DivideOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("/", args);
@@ -1258,7 +1467,7 @@ namespace Urb
 
         private class MultiplyOperatorForm : Expression
         {
-            public MultiplyOperatorForm(object[] args) : base(args) { }
+            public MultiplyOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("*", args);
@@ -1267,7 +1476,7 @@ namespace Urb
 
         private class SubOperatorForm : Expression
         {
-            public SubOperatorForm(object[] args) : base(args) { }
+            public SubOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("-", args);
@@ -1276,7 +1485,7 @@ namespace Urb
 
         private class AddOperatorForm : Expression
         {
-            public AddOperatorForm(object[] args) : base(args) { }
+            public AddOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("+", args);
@@ -1331,7 +1540,7 @@ namespace Urb
 
         private class DivideSelfOperatorForm : Expression
         {
-            public DivideSelfOperatorForm(object[] args) : base(args) { }
+            public DivideSelfOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("/=", args, isOnlyTwo: true);
@@ -1340,7 +1549,7 @@ namespace Urb
 
         private class MultiplySelfOperatorForm : Expression
         {
-            public MultiplySelfOperatorForm(object[] args) : base(args) { }
+            public MultiplySelfOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("*=", args, isOnlyTwo: true);
@@ -1349,7 +1558,7 @@ namespace Urb
 
         private class SubSelfOperatorForm : Expression
         {
-            public SubSelfOperatorForm(object[] args) : base(args) { }
+            public SubSelfOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("-=", args, isOnlyTwo: true);
@@ -1358,7 +1567,7 @@ namespace Urb
 
         private class AddSelfOperatorForm : Expression
         {
-            public AddSelfOperatorForm(object[] args) : base(args) { }
+            public AddSelfOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("+=", args, isOnlyTwo: true);
@@ -1367,7 +1576,7 @@ namespace Urb
 
         private class LesserOperatorForm : Expression
         {
-            public LesserOperatorForm(object[] args) : base(args) { }
+            public LesserOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("<", args, isOnlyTwo: true);
@@ -1376,7 +1585,7 @@ namespace Urb
 
         private class BiggerOperatorForm : Expression
         {
-            public BiggerOperatorForm(object[] args) : base(args) { }
+            public BiggerOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree(">", args, isOnlyTwo: true);
@@ -1385,7 +1594,7 @@ namespace Urb
 
         private class EqualOperatorForm : Expression
         {
-            public EqualOperatorForm(object[] args) : base(args) { }
+            public EqualOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("==", args, isOnlyTwo: true);
@@ -1394,7 +1603,7 @@ namespace Urb
 
         private class LesserEqualOperatorForm : Expression
         {
-            public LesserEqualOperatorForm(object[] args) : base(args) { }
+            public LesserEqualOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("<=", args, isOnlyTwo: true);
@@ -1403,7 +1612,7 @@ namespace Urb
 
         private class BiggerEqualOperatorForm : Expression
         {
-            public BiggerEqualOperatorForm(object[] args) : base(args) { }
+            public BiggerEqualOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
             public override string CompileToCSharp()
             {
                 return OperatorTree(">=", args, isOnlyTwo: true);

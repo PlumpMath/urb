@@ -46,7 +46,7 @@
 (define (print::void line::string)
     (Console.WriteLine line))
 
-(define (factorial::int acc::int n::int)
+(define (factorial acc n)
     (if (> n 1)
         (return (factorial (* acc n) (- n 1)))
         (return acc)))
