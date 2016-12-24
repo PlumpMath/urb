@@ -81,8 +81,13 @@ namespace Urb
 
             // float 1f 2.0f
             @"(?<float>[-+]?[0-9]*\.?[0-9]+f)|" +
+            // double 1d 2.0d
+            @"(?<Double>[-+]?[0-9]*\.?[0-9]+d)|" +
             // integer 120
-            @"(?<integer>[+-]?[0-9]+)|" +
+            @"(?<Int32>[+-]?[0-9]+)|" +
+            // true|false
+            @"(?<bool>true|false)|" +
+
             // operators
             @"(?<operator>\+=|\-=|\=|\+|\-|\*|\/|\^)|" +
             // boolean
@@ -167,9 +172,18 @@ namespace Urb
 
         private static string SourceEnforce(object[] args, int index)
         {
-            return args[index].GetType().IsSubclassOf(typeof(Expression)) ?
-                   ((Expression)args[index]).CompileToCSharp()
-                                  : (string)((Atom)args[index]).value;
+            var arg = args[index];
+
+            if (arg.GetType().IsSubclassOf(typeof(Expression)))
+            {
+                return ((Expression)arg).CompileToCSharp();
+            }
+            else if(arg is Atom)
+            {
+                return (arg as Atom).valueString;
+            }
+            throw new NotImplementedException();
+
         }
 
         private static void _print(string line)
@@ -399,7 +413,7 @@ namespace Urb
             public LiteralForm(object[] args) : base(args) { }
             public void Init(Atom function)
             {
-                _functionLiteral = function.value.ToString();
+                _functionLiteral = function.valueString;
             }
             public override string CompileToCSharp()
             {
@@ -478,12 +492,17 @@ namespace Urb
                 case "symbol":
                     return new Atom(token.Name,
                                     token.Value.Substring(1, token.Value.Length - 1));
-                case "integer": return new Atom("Int32", Int32.Parse(token.Value));
+                case "Int32": return new Atom("Int32", Int32.Parse(token.Value));
+                case "Double":
+                    var d = double.Parse(token.Value);
+                    return new Atom("Double", d);
+
                 case "float":
-                    var number = float.Parse(token.Value.ToString().Substring(0,
+                    var number = float.Parse(token.Value.Substring(0,
                       token.Value.ToString().Length - 1));
                     return new Atom("float", number);
-
+                case "bool":
+                    return new Atom("bool", token.Value == "true");
                 default: return new Atom(token.Name, token.Value);
             }
         }
@@ -527,19 +546,17 @@ namespace Urb
 
         private static int _transformerIndex = 0;
 
-        public enum AbstractType
+        public enum ApplyCase
         {
-            Numberic,
-            String,
-            Struct,
-            Instance,
-            Undefined,
-            Custom
+            Map,             
+            Return,
+            Distinct,
+            Undefined
         }
 
         public abstract class Expression
         {
-            public AbstractType abstractType = AbstractType.Undefined;
+            public ApplyCase abstractType = ApplyCase.Undefined;
             public object[] args;
             public Expression(object[] _args)
             {
@@ -986,11 +1003,11 @@ namespace Urb
         
         private static string[] _pair(Atom atom)
         {
-            return atom.value.ToString().Split(new char[] { ':' });
+            return atom.valueString.Split(new char[] { ':' });
         }
 
         private static string _buildMethod
-        (object[] args, bool isStatic = false, bool isOverride = false)
+        (object[] args, Dictionary<string, Token> inferenceMap ,bool isStatic = false, bool isOverride = false)
         {
             /**************************************************
 			 * 
@@ -1003,19 +1020,49 @@ namespace Urb
 			 * 
 			 **************************************************/
             var signature = ((Block)args[0]);
-            var _head = _pair(signature.head as Token);
-            var name = _head[0];
-            var returnType = _head[1];
+            var headSign = signature.head as Token;
+            string name = String.Empty;
+            string returnType = String.Empty;
+
+            if (headSign.Name == "pair")
+            {
+                var _head = _pair(headSign);
+                name = _head[0];
+                returnType = _head[1];
+            }
+            else if (inferenceMap.ContainsKey(headSign.Value))
+            {
+                /// calling inference-map for help:
+                var _functionNameToken = inferenceMap[headSign.Value];
+                name = _functionNameToken.Name;
+                returnType = _functionNameToken.Value;
+            }
+            else
+            {
+                /// simple:
+                name = headSign.Value;
+                returnType = "void";
+            }
             /// Build parameters..
             var arguments = new StringBuilder();
             if (signature.elements.Count > 1)
             {
-                foreach(Token parameter in signature.elements)
+                signature.elements.Remove(signature.head);
+                foreach (Token parameter in signature.elements)
                 {
-                    if (!parameter.Value.Contains(name))
+                    var result = String.Empty;
+                    if (parameter.Name == "pair")
                     {
-                        arguments.Append(string.Format(" {1} {0},", _pair(parameter)));
+                        result = string.Format(" {1} {0},", _pair(parameter));
                     }
+                    else if (inferenceMap.ContainsKey(parameter.Value))
+                    {
+
+                        var _token = inferenceMap[parameter.Value];
+
+                        result = string.Format(" {1} {0},", _token.Name, _token.Value);
+                    }
+                    arguments.Append(result);
                 }
             }
             // remove last comma.
@@ -1069,7 +1116,7 @@ namespace Urb
             {
                 foreach (Token attribute in _attributes)
                 {
-                    attributes.Append(_buildAtom(attribute).value + " ");
+                    attributes.Append(_buildAtom(attribute).valueString + " ");
                 }
                 attributes.Remove(attributes.Length - 1, 1);
             }
@@ -1104,183 +1151,15 @@ namespace Urb
             public override string CompileToCSharp()
             {
                 if (isVariable) return _setExpression.CompileToCSharp();
-                else return _buildMethod(args);
+                else return _buildMethod(args, null); // leave support later.
             }
         }
          
-        private static Dictionary<string, Token> _typeInference (Dictionary<string, Token> _parameters, Block _body)
-        {
-            var _dict = new Dictionary<string, Token>();
-            foreach(string name in _parameters.Keys)
-            {                          
-                /// search for the name.
-                var _type = _parameters[name].Name;
-                _type = _searchFor(name, _body, _type);
-                _dict.Add(name, new Token(_type, name));
-                Console.WriteLine("got {0} for {1}.\n", _type, name);
-            }
-            return _dict;
-            //throw new NotImplementedException();
-        }
-
-        private static List<string> _allReferencesCache()
-        {
-            /// need caching whole namespace things !
-            var _dict = new List<string>();
-            foreach (var _reference in _loadedReferences)
-            {
-                var _asm = Assembly.Load(_reference);
-                var _types = _asm.GetExportedTypes();
-                foreach (var t in _types)
-                {
-                    //_print("\n{0}", t.FullName);
-                    _dict.Add(t.FullName);
-                    foreach (var member in t.GetMembers(BindingFlags.Public))
-                    {
-                        _dict.Add(member.Name);
-                    }
-                }
-            }
-            return _dict;
-        }
-
-        private static List<string> _findMethodCandidates(string _methodName, List<string> _candidates, object[] _tree, int _position)
-        {                                            
-            var _typeCandidates = new List<string>();
-
-            foreach (var _candidate in _candidates)
-            {
-                _print("\nfor candidate: {0}", _candidate);
-
-                var _class = Type.GetType(_candidate);
-                var _methods = _class.GetMethods();
-
-                /// caching methods to find
-                foreach (var _method in _methods)
-                {
-                    if (_method.Name == _methodName)
-                    {
-                        var _parameters = _method.GetParameters();
-                        if (_parameters.Length == _tree.Length - 1)
-                        {
-                            Console.Write("\n  {0} : ", _methodName);
-                            foreach (var _parameter in _parameters)
-                            {
-                                Console.Write("{0} ", _parameter.ParameterType.Name);
-                            }
-                            _typeCandidates.Add(_parameters[_position - 1].ParameterType.Name);
-
-                        }
-                    }
-                }
-                _print("Got candidates:\n");
-                foreach (var _typeCandi in _typeCandidates)
-                    _print("{0}\n", _typeCandi);
-
-            }
-            return _typeCandidates;
-        }
-
-        private static List<string> _typeCandidates(string _f, object[] _tree, int _position)
-        {
-            /// mean it's from .NET:
-            /// break into -> _method + _ns
-            var _lastIndex = _f.LastIndexOf(".");
-            var _methodName = _f.Substring(_lastIndex + 1);
-            var _className = _f.Replace("." + _methodName, "");
-            _print("broken into: {0} : {1}", _className, _methodName);
-            /// Get current references cache:
-            var _dict = _allReferencesCache();
-            _print("\ncached all using references.\n");
-            /// Get all possible candidate CLASS by using namespace:
-            var _candidates = new List<string>();
-            foreach (var _namespace in _usingNamespaces)
-            {
-                var _a = _namespace + "." + _className;
-
-                if (_dict.Contains(_a))
-                {
-                    _print("candidate: {0}", _a);
-                    _candidates.Add(_a);
-                }
-            }
-            /// Get possible types from method's parameters:
-            var _typeCandidates = _findMethodCandidates(_methodName, _candidates, _tree, _position);
-            return _typeCandidates;
-        }
-
-        private static string _searchFor(string name, Block _body, string _type)
-        {
-            var _tree = _body.elements.ToArray();
-            for(int i = 0; i < _tree.Length; i++)
-            {
-                if (_tree[i] is Token)
-                {
-                    var token = _tree[i] as Token;
-                    Console.WriteLine("scanning: '{0}' -> '{1}'", token.Value, name);
-                    if (token.Value == name)
-                    {
-                        Console.WriteLine("'{0}' is used by '{1}'.", name, (_tree[0] as Token).Value);
-                        var _f = (_tree[0] as Token).Value;
-                        if (_f.Contains("."))
-                        {
-                            var result = _typeCandidates(_f, _tree, i);
-                            if (result.Count > 0 || result.Count == 0)
-                            {
-                                _print("can't determine type using !");
-                                throw new Exception();
-                            }
-                            else return result[0];
-                        }
-                        else
-                        {
-                            var _abstract = ((Expression)Activator.CreateInstance(
-                                _primitiveForms[_f],new [] { new object[] { } })).abstractType;
-                            switch (_abstract)
-                            {
-                                case AbstractType.Numberic:
-                                    /// as pure numeric:
-                                    var neighbourCandidates = new List<string>();
-                                    var l = new List<object>(_tree);
-                                    l.Remove(l[0]);
-                                    l.Remove(_tree[i]);
-                                    if (l.Count > 0)
-                                    {
-                                        foreach (var neighbour in l)
-                                        {
-                                            if (neighbour is Token)
-                                            {
-                                                var _n = neighbour as Token;
-                                                _print("neighbour type {0}:{1}.\n", _n.Name, _n.Value);
-                                                neighbourCandidates.Add(_n.Name);
-                                            }
-                                            else
-                                                return _searchFor(name, _body, _type);
-                                        }
-                                        return neighbourCandidates[0];
-                                    }
-                                    break;
-                                default: throw new NotImplementedException();
-                            }
-                            /// it's from our land, perhaps!
-                            throw new NotImplementedException();
-                        }
-                    }
-                }
-                else if(_tree[i] is Block)
-                {
-                    return _searchFor(name, _tree[i] as Block, _type);
-                }
-            }
-            return "depend on something else";   
-            //throw new NotImplementedException();
-        }
-
         private class DefineForm : Expression
         {
             public bool isVariable = false;
             private SetForm _setExpression;
-            private Dictionary<string, Token> _parameters;
+            private Dictionary<string, Token> _inferenceMap;
             private Block _body;
             public DefineForm(object[] args) : base(args)
             {
@@ -1292,20 +1171,20 @@ namespace Urb
                 else
                 {
                     /// filtering data
-                    _parameters = new Dictionary<string, Token>();
+                    _inferenceMap = new Dictionary<string, Token>();
                     foreach(Token parameter in (args[0] as Block).elements)
                     {
                         ///TODO: consider it's pretty unknown.
-                        if( parameter.Name != "pair" &&
-                            parameter.Value!= ((args[0] as Block).head as Token).Value)
-                        _parameters.Add(parameter.Value, parameter);
+                        if( parameter.Name != "pair")
+                            //&& parameter.Value!= ((args[0] as Block).head as Token).Value)
+                            /// We allow function return type to join :
+                            _inferenceMap.Add(parameter.Value, parameter);
                     }
-                    _body = args[1] as Block;
 
+                    _body = new Block(args);
+                    
                     /// Now replacing with type inference:
-                    _parameters = _typeInference(_parameters, _body);
-                    /// Fuse type -> name
-                    /// somewhat here.
+                    _inferenceMap = _typeInference(_inferenceMap, _body);     
                 }
 
             }
@@ -1318,7 +1197,7 @@ namespace Urb
                 }
                 else
                 {
-                    return _buildMethod(args, isStatic: true);
+                    return _buildMethod(args, _inferenceMap, isStatic: true);
                 }
             }
         }
@@ -1329,13 +1208,13 @@ namespace Urb
             public DefoverrideForm(object[] args) : base(args) { }
             public override string CompileToCSharp()
             {
-                return _buildMethod(args, isOverride: true);
+                return _buildMethod(args, null, isOverride: true);
             }
         }
 
         private class ReturnForm : Expression
         {
-            public ReturnForm(object[] args) : base(args) { }
+            public ReturnForm(object[] args) : base(args) { abstractType = ApplyCase.Return; }
             public override string CompileToCSharp()
             {
                 return String.Format("return {0}", SourceEnforce(args, 0));
@@ -1361,7 +1240,7 @@ namespace Urb
 
                 var name = ((Atom)args[0]).ToString();
                 var value = args[1] is Atom ?
-                    ((Atom)args[1]).value : 
+                    ((Atom)args[1]).valueString : 
                     _insertPrimitives((Block)args[1]).CompileToCSharp();
                 return String.Format("var {0} = {1}", name, value);
             }
@@ -1431,7 +1310,7 @@ namespace Urb
             {
                 var name = ((Atom)args[0]).ToString();
                 var value = args[1].GetType() == typeof(Atom) ?
-                    ((Atom)args[1]).value : SourceEnforce(args, 1);
+                    ((Atom)args[1]).valueString : SourceEnforce(args, 1);
                 return String.Format("{0} = {1};", name, value);
             }
         }
@@ -1448,7 +1327,7 @@ namespace Urb
             {
                 var x =
                     args[i].GetType() == typeof(Atom) ?
-                    ((Atom)args[i]).value : SourceEnforce(args, i);
+                    ((Atom)args[i]).valueString : SourceEnforce(args, i);
                 acc.Append(String.Format(
                     i + 1 < args.Length ? "{0} {1} " : "{0}", x, (i + 1 < args.Length ? _operator : "")));
             }
@@ -1458,7 +1337,7 @@ namespace Urb
 
         private class DivideOperatorForm : Expression
         {
-            public DivideOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public DivideOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("/", args);
@@ -1467,7 +1346,7 @@ namespace Urb
 
         private class MultiplyOperatorForm : Expression
         {
-            public MultiplyOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public MultiplyOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("*", args);
@@ -1476,7 +1355,7 @@ namespace Urb
 
         private class SubOperatorForm : Expression
         {
-            public SubOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public SubOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("-", args);
@@ -1485,7 +1364,7 @@ namespace Urb
 
         private class AddOperatorForm : Expression
         {
-            public AddOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public AddOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("+", args);
@@ -1540,7 +1419,7 @@ namespace Urb
 
         private class DivideSelfOperatorForm : Expression
         {
-            public DivideSelfOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public DivideSelfOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("/=", args, isOnlyTwo: true);
@@ -1549,7 +1428,7 @@ namespace Urb
 
         private class MultiplySelfOperatorForm : Expression
         {
-            public MultiplySelfOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public MultiplySelfOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("*=", args, isOnlyTwo: true);
@@ -1558,7 +1437,7 @@ namespace Urb
 
         private class SubSelfOperatorForm : Expression
         {
-            public SubSelfOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public SubSelfOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("-=", args, isOnlyTwo: true);
@@ -1567,7 +1446,7 @@ namespace Urb
 
         private class AddSelfOperatorForm : Expression
         {
-            public AddSelfOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public AddSelfOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("+=", args, isOnlyTwo: true);
@@ -1576,7 +1455,7 @@ namespace Urb
 
         private class LesserOperatorForm : Expression
         {
-            public LesserOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public LesserOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("<", args, isOnlyTwo: true);
@@ -1585,7 +1464,7 @@ namespace Urb
 
         private class BiggerOperatorForm : Expression
         {
-            public BiggerOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public BiggerOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree(">", args, isOnlyTwo: true);
@@ -1594,7 +1473,7 @@ namespace Urb
 
         private class EqualOperatorForm : Expression
         {
-            public EqualOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public EqualOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("==", args, isOnlyTwo: true);
@@ -1603,7 +1482,7 @@ namespace Urb
 
         private class LesserEqualOperatorForm : Expression
         {
-            public LesserEqualOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public LesserEqualOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree("<=", args, isOnlyTwo: true);
@@ -1612,7 +1491,7 @@ namespace Urb
 
         private class BiggerEqualOperatorForm : Expression
         {
-            public BiggerEqualOperatorForm(object[] args) : base(args) { abstractType = AbstractType.Numberic; }
+            public BiggerEqualOperatorForm(object[] args) : base(args) { abstractType = ApplyCase.Map; }
             public override string CompileToCSharp()
             {
                 return OperatorTree(">=", args, isOnlyTwo: true);
@@ -1652,12 +1531,338 @@ namespace Urb
         }
         #endregion
 
-        #region Type Inferfence
-        /// <summary>
-        /// Where the awesome begin :D
-        /// </summary>
+        #region Type Inferfence              
 
+        private static Dictionary<string, Token> _typeInference(Dictionary<string, Token> _parameters, Block _body)
+        {
+            var counter = 0;
+            var _dict = new Dictionary<string, Token>();
+            foreach (string name in _parameters.Keys)
+            {
+                /// search for the name.
+                _parameterDict.Add(name, new PInfo() { isFunction = counter == 0 });
+                var _type = _parameters[name].Name;
+                _type = _searchFor(name, _body);
+                if (_type == null)
+                {
+                    if(_parameterDict[name].equalTypeNeighbour != null)
+                    _print("Wait for {0}.\n\n", _parameterDict[name].equalTypeNeighbour);
+                }
+                else
+                {
+                    _dict.Add(name, new Token(name, _type));
+                    _parameterDict[name].exactType = _type;
+                    _parameterDict[name].isVerified = true;
+                    Console.WriteLine("got {0} for {1}.\n", _type, name);
+                }
+                counter++;
+            }
+            /// Linking...
+            _dict = _refreshInference(_dict);
+            /// Wonder if all parameters are inferred:
+            if (_dict.Count < _parameterDict.Count)
+            {
+                foreach(var _parameter in _parameterDict)
+                {
+                    if (!_dict.ContainsKey(_parameter.Key) &&
+                        _parameterDict[_parameter.Key].exactType!=null)
+                    {
+                        var _pair = new Token(_parameter.Key, _parameter.Value.exactType);
+                        _dict.Add(_parameter.Key, _pair);
+                    }
+                }   
+                //throw new NotImplementedException();
+            }
+            /// Flush.
+            _parameterDict.Clear();
+            return _dict;                                    
+        }
 
+        private static Dictionary<string, Token> _refreshInference(Dictionary<string, Token> _dict)
+        {
+            foreach (var lv1_p in _parameterDict)
+            {       
+                 foreach (var p in _parameterDict)
+                 {
+                        if (!p.Value.isVerified)
+                        {
+                            /// Update _dict till done.
+                            _dict = _linkInference(_dict);
+                        }
+                 }
+            }
+            return _dict;
+        }
+
+        private static Dictionary<string, Token> _linkInference(Dictionary<string, Token> _dict)
+        {       
+            foreach (var p in _parameterDict)
+            {
+                if (!p.Value.isVerified)
+                {
+                    if (p.Value.equalTypeNeighbour != null)
+                    {
+                        if (_parameterDict[p.Value.equalTypeNeighbour].isVerified)
+                        {
+                            p.Value.exactType = _parameterDict[p.Value.equalTypeNeighbour].exactType;
+                            p.Value.isVerified = true;
+                            _dict.Add(p.Key, new Token(p.Key, p.Value.exactType));
+                            _print("linked {2} from {1} -> {0}.\n",
+                                p.Key, p.Value.equalTypeNeighbour, p.Value.exactType);
+                        }
+                        else
+                        {
+                            /// ?
+                        }
+                    }
+                }        
+            }                                
+            return _dict;
+        }
+               
+        private static List<string> _allReferencesCache()
+        {
+            /// need caching whole namespace things !
+            var _dict = new List<string>();
+            foreach (var _reference in _loadedReferences)
+            {
+                var _asm = Assembly.Load(_reference);
+                var _types = _asm.GetExportedTypes();
+                foreach (var t in _types)
+                {
+                    //_print("\n{0}", t.FullName);
+                    _dict.Add(t.FullName);
+                    foreach (var member in t.GetMembers(BindingFlags.Public))
+                    {
+                        _dict.Add(member.Name);
+                    }
+                }
+            }
+            return _dict;
+        }
+
+        private static List<string> _findMethodCandidates(string _methodName, List<string> _candidates, object[] _tree, int _position)
+        {
+            var _typeCandidates = new List<string>();
+
+            foreach (var _candidate in _candidates)
+            {
+                _print("\nfor candidate: {0}", _candidate);
+
+                var _class = Type.GetType(_candidate);
+                var _methods = _class.GetMethods();
+
+                /// caching methods to find
+                foreach (var _method in _methods)
+                {
+                    if (_method.Name == _methodName)
+                    {
+                        var _parameters = _method.GetParameters();
+                        if (_parameters.Length == _tree.Length - 1)
+                        {
+                            Console.Write("\n  {0} : ", _methodName);
+                            foreach (var _parameter in _parameters)
+                            {
+                                Console.Write("{0} ", _parameter.ParameterType.Name);
+                            }
+                            _typeCandidates.Add(_parameters[_position - 1].ParameterType.Name);
+
+                        }
+                    }
+                }
+                _print("Got candidates:\n");
+                foreach (var _typeCandi in _typeCandidates)
+                    _print("{0}\n", _typeCandi);
+
+            }
+            return _typeCandidates;
+        }
+
+        private static List<string> _typeCandidates(string _f, object[] _tree, int _position)
+        {
+            /// mean it's from .NET:
+            /// break into -> _method + _ns
+            var _lastIndex = _f.LastIndexOf(".");
+            var _methodName = _f.Substring(_lastIndex + 1);
+            var _className = _f.Replace("." + _methodName, "");
+            _print("broken into: {0} : {1}", _className, _methodName);
+            /// Get current references cache:
+            var _dict = _allReferencesCache();
+            _print("\ncached all using references.\n");
+            /// Get all possible candidate CLASS by using namespace:
+            var _candidates = new List<string>();
+            foreach (var _namespace in _usingNamespaces)
+            {
+                var _a = _namespace + "." + _className;
+
+                if (_dict.Contains(_a))
+                {
+                    _print("candidate: {0}", _a);
+                    _candidates.Add(_a);
+                }
+            }
+            /// Get possible types from method's parameters:
+            var _typeCandidates = _findMethodCandidates(_methodName, _candidates, _tree, _position);
+            return _typeCandidates;
+        }
+
+        private class PInfo
+        {
+            public bool isFunction = false;
+            public bool isVerified = false;
+            public bool isSameAsReturnType = false;
+            public string exactType;
+            public string equalTypeNeighbour;
+            public PInfo()
+            {   
+            }
+        }
+
+        private static Dictionary<string, PInfo> _parameterDict = new Dictionary<string, PInfo>();
+
+        private static string _searchFor(string name, Block _body)
+        {
+            var _tree = _body.elements.ToArray();
+            for (int i = 0; i < _tree.Length; i++)
+            {
+                if (_tree[i] is Token)
+                {
+                    var token = _tree[i] as Token;
+                    Console.WriteLine("scanning: '{0}' -> '{1}'", token.Value, name);
+                    if (token.Value == name)
+                    {
+                        Console.WriteLine("'{0}' is used by '{1}'.", name, (_tree[0] as Token).Value);
+                        var _f = (_tree[0] as Token).Value;
+                        if (_f.Contains("."))
+                        {
+                            var result = _typeCandidates(_f, _tree, i);
+                            if (result.Count > 0 || result.Count == 0)
+                            {
+                                _print("can't determine type using !");
+                                throw new Exception();
+                            }
+                            else return result[0];
+                        }
+                        else
+                        {
+                            var result = _findTypeInLocalFunction(_f, _tree, i, name);
+                            if(result == null)
+                            {
+                                /// it's nothing here.
+                            }
+                            else if (result.Name == "literal")
+                            {
+                                /// if dependent variable is there.
+                                if (_parameterDict.ContainsKey(result.Value) &&
+                                    _parameterDict[result.Value].isVerified)
+                                {
+                                    return _parameterDict[result.Value].exactType;
+                                }
+                                else 
+                                /// mean it depend on other variable !
+                                _parameterDict[name].equalTypeNeighbour = result.Value;
+                            }
+                            else return result.Name;
+                        }
+                    }
+                    else if (_parameterDict[name].isFunction)
+                    {
+                        /// checking return :
+                        if ((_tree[i] as Token).Value == "return")
+                        {
+                            if (_tree[i + 1] is Token && (i + 1 <= _tree.Length))
+                            {
+                                var _token = (_tree[i + 1] as Token);
+                                switch (_token.Name)
+                                {
+                                    case "literal":
+                                        _parameterDict[name].equalTypeNeighbour = _token.Value;
+                                        break;
+                                    case "bool":
+                                    case "Int32":
+                                    case "float":
+                                    case "double":
+                                    case "symbol":
+                                        var _atom = _buildAtom(_token);
+                                        _parameterDict[name].exactType = _atom.type;
+                                        _parameterDict[name].isVerified = true;
+                                        break;
+                                    default:
+                                        throw new NotImplementedException();
+                                }
+                            }
+                        }                                                   
+                    }
+                }
+                else if (_tree[i] is Block)
+                {
+                    var result = _searchFor(name, _tree[i] as Block);
+                    if (result != null)
+                        return result;
+                }
+            }
+            return null;
+            //throw new NotImplementedException();
+        }
+
+        private static Token _findTypeInLocalFunction(string _f, object[] _tree, int _index, string name)
+        {
+            /// Local Context:
+            if (_primitiveForms.ContainsKey(_f))
+            {
+                var _abstract = ((Expression)Activator.CreateInstance(
+                    _primitiveForms[_f], new[] { new object[] { } })).abstractType;
+                switch (_abstract)
+                {
+                    case ApplyCase.Map:
+                        /// as pure numeric:
+                        var neighbourCandidates = new List<Token>();
+                        var l = new List<object>(_tree);
+                        l.Remove(l[0]);
+                        l.Remove(_tree[_index]);
+                        if (l.Count > 0)
+                        {
+                            foreach (var neighbour in l)
+                            {
+                                if (neighbour is Token)
+                                {
+                                    var _neighbour = neighbour as Token;
+                                    _print("found neighbour {0}:{1}.\n", _neighbour.Name, _neighbour.Value);
+                                    /// Should be primitive type:
+                                    neighbourCandidates.Add(_neighbour);
+                                }
+                                else
+                                {
+                                    var result = _searchFor(name, neighbour as Block);
+                                    if (result != null)
+                                        neighbourCandidates.Add(new Token(result, name));
+                                }
+                            }
+                            _print("\nFound {0} solution.\n", neighbourCandidates.Count);
+                            return neighbourCandidates[0];
+                        }
+                        break;
+                    case ApplyCase.Distinct:
+                        /// Where function is not a mapping !
+                        /// it mean be specific in the function signature.
+                        throw new NotImplementedException();
+
+                    case ApplyCase.Return:
+                        _parameterDict[name].isSameAsReturnType = true;
+                        break;
+
+                    default: throw new NotImplementedException();
+                }
+            }
+            else
+            {
+                /// search on defined functions ?
+                return null;
+            }
+            return null;
+            //throw new NotImplementedException();
+        }
+        
         #endregion
 
         #region Main () collector
@@ -1807,7 +2012,7 @@ namespace Urb
             switch (tokens.Count)
             {
                 case 0: return new Nil(); // Nil? //
-                case 1: return new Value(_buildAtom(tokens[0]).value);
+                case 1: return new Value(_buildAtom(tokens[0]).valueString);
                 default:
                     // more than one is sign of block or expression    //
                     var _tree = Lexer(tokens);

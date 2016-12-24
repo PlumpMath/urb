@@ -5,6 +5,15 @@ namespace Urb
 	{
 		public string type;
 		public object value;
+        public string valueString
+        {
+            get
+            {
+                return value is bool ? 
+                    (bool)value ? "true" : "false" : 
+                    value.ToString();
+            }
+        }
 		public Atom(string type, object value)
 		{
 			this.type = type;
@@ -12,7 +21,7 @@ namespace Urb
 		}
 		public override string ToString()
 		{
-			return string.Format("{0}", value);
+			return string.Format("{0}", valueString);
 		}
 	}
 }

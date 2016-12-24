@@ -43,8 +43,9 @@
 (define (print::void line::string args::params-object[])
  	(Console.WriteLine line args))
         
-(define (print::void line::string)
-    (Console.WriteLine line))
+(define (print line::string)
+    (Console.WriteLine line)
+	(return false))
 
 (define (factorial acc n)
     (if (> n 1)
@@ -87,4 +88,5 @@
 (print "{0}"(factorial 1 10))
 (pytago 1.0f 2.0f 3.0f)
 (test)
+(print "{0}" true)
 (Console.ReadLine)
