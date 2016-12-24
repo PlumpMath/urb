@@ -30,11 +30,11 @@ The work flow:
 
 		(define user "deulamco")
 
-		(member IamAMember "Hello")
+		(member Im_a_member "Hello")
 
 		(define dict (new Dictionary<String,String>)) 
 
-		(define (print::void line::string args::params::object[])
+		(define (print::void line::string args::params-object[])
 		    (Console/WriteLine line))
 		        
 		(define (print::void line::string)
@@ -60,7 +60,7 @@ The work flow:
 		    (if (and (< i 10) (< -1 i) 
 		             (or true false))
 		        (jump Condition))
-			    (var result i)
+		    (var result i)
 		    (Console/WriteLine "Good bye {0} !" result))
 
 
