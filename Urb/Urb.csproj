@@ -55,10 +55,11 @@
     <None Include="examples\LispHigh.ul" />
     <None Include="examples\Ruby.rb" />
     <None Include="examples\Lisp.ul" />
-    <None Include="lib\repl_init.ul" />
     <None Include="examples\Forth.ufo" />
     <None Include="examples\simple.ul" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="lib\" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
