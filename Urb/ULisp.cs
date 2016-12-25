@@ -186,6 +186,22 @@ namespace Urb
 
         }
 
+        private static void _warning(string line)
+        {
+            var _backupColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Red;
+            _print(line);
+            Console.ForegroundColor = _backupColor;
+        }
+         
+        private static void _warning(string line, params object[] args)
+        {
+            var _backupColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Red;
+            _print(line, args);
+            Console.ForegroundColor = _backupColor;
+        }
+
         private static void _print(string line)
         {
             Console.WriteLine(line);
@@ -1172,19 +1188,24 @@ namespace Urb
                 {
                     /// filtering data
                     _inferenceMap = new Dictionary<string, Token>();
+                    var _count = 0;
+                    var _functionName = String.Empty;
                     foreach(Token parameter in (args[0] as Block).elements)
                     {
                         ///TODO: consider it's pretty unknown.
-                        if( parameter.type != "pair")
-                            //&& parameter.Value!= ((args[0] as Block).head as Token).Value)
+                        if (parameter.type != "pair")
+                        {    //&& parameter.Value!= ((args[0] as Block).head as Token).Value)
                             /// We allow function return type to join :
                             _inferenceMap.Add(parameter.value, parameter);
+                            if (_count == 0) _functionName = parameter.value;
+                        }
+                        _count++;
                     }
 
                     _body = new Block(args);
                     
                     /// Now replacing with type inference:
-                    _inferenceMap = _typeInference(_inferenceMap, _body);     
+                    _inferenceMap = _typeInference(_inferenceMap, _body, _functionName);     
                 }
 
             }
@@ -1533,7 +1554,8 @@ namespace Urb
 
         #region Type Inferfence              
 
-        private static Dictionary<string, Token> _typeInference(Dictionary<string, Token> _parameters, Block _body)
+        private static Dictionary<string, Token> _typeInference
+            (Dictionary<string, Token> _parameters, Block _body, string _functionName)
         {
             var counter = 0;
             var _dict = new Dictionary<string, Token>();
@@ -1542,7 +1564,7 @@ namespace Urb
                 /// search for the name.
                 _parameterDict.Add(name, new PInfo() { isFunction = counter == 0 });
                 var _type = _parameters[name].type;
-                _type = _searchFor(name, _body);
+                _type = _searchFor(name, _body, _functionName);
                 if (_type == null)
                 {
                     if(_parameterDict[name].equalTypeNeighbour != null)
@@ -1720,7 +1742,7 @@ namespace Urb
 
         private static Dictionary<string, PInfo> _parameterDict = new Dictionary<string, PInfo>();
 
-        private static string _searchFor(string name, Block _body)
+        private static string _searchFor(string signature, Block _body, string _functionName)
         {
             var _tree = _body.elements.ToArray();
             for (int i = 0; i < _tree.Length; i++)
@@ -1728,10 +1750,36 @@ namespace Urb
                 if (_tree[i] is Token)
                 {
                     var token = _tree[i] as Token;
-                    Console.WriteLine("scanning: '{0}' -> '{1}'", token.value, name);
-                    if (token.value == name)
+                    Console.WriteLine("scanning: '{0}' -> '{1}'", token.value, signature);
+                    if (token.value == "return")
                     {
-                        Console.WriteLine("'{0}' is used by '{1}'.", name, (_tree[0] as Token).value);
+                        /// special case:
+                        if (signature == _functionName)
+                        {
+                            /// should figure out the type that is returned !
+                            if (_tree.Length == 2)
+                            {
+                                if (_tree[1] is Block)
+                                {
+                                    /// continue searching for return type !
+                                    var _returnType = _findBlockReturnType(_tree[1] as Block);
+                                    if (_returnType.type == "literal")
+                                    {
+                                        _parameterDict[signature].equalTypeNeighbour = _returnType.value;
+                                    }
+                                }
+                                else if (_tree[1] is Token)
+                                {
+                                    /// ??? depend on it !
+                                    _parameterDict[signature].equalTypeNeighbour = (_tree[1] as Token).value;
+                                }
+                            }
+                        }
+                        throw new NotImplementedException();
+                    }
+                    else if (token.value == signature)
+                    {
+                        Console.WriteLine("'{0}' is used by '{1}'.", signature, (_tree[0] as Token).value);
                         var _f = (_tree[0] as Token).value;
                         if (_f.Contains("."))
                         {
@@ -1752,7 +1800,7 @@ namespace Urb
                         }
                         else
                         {
-                            var result = _findTypeInLocalFunction(_f, _tree, i, name);
+                            var result = _findTypeInLocalFunction(_f, _tree, i, signature, _functionName);
                             if(result == null)
                             {
                                 /// it's nothing here.
@@ -1767,12 +1815,12 @@ namespace Urb
                                 }
                                 else 
                                 /// mean it depend on other variable !
-                                _parameterDict[name].equalTypeNeighbour = result.value;
+                                _parameterDict[signature].equalTypeNeighbour = result.value;
                             }
                             else return result.type;
                         }
                     }
-                    else if (_parameterDict[name].isFunction)
+                    else if (_parameterDict[signature].isFunction)
                     {
                         /// checking return :
                         if ((_tree[i] as Token).value == "return")
@@ -1783,7 +1831,7 @@ namespace Urb
                                 switch (_token.type)
                                 {
                                     case "literal":
-                                        _parameterDict[name].equalTypeNeighbour = _token.value;
+                                        _parameterDict[signature].equalTypeNeighbour = _token.value;
                                         break;
                                     case "bool":
                                     case "Int32":
@@ -1791,8 +1839,8 @@ namespace Urb
                                     case "double":
                                     case "symbol":
                                         var _atom = _buildAtom(_token);
-                                        _parameterDict[name].exactType = _atom.type;
-                                        _parameterDict[name].isVerified = true;
+                                        _parameterDict[signature].exactType = _atom.type;
+                                        _parameterDict[signature].isVerified = true;
                                         break;
                                     default:
                                         throw new NotImplementedException();
@@ -1803,7 +1851,7 @@ namespace Urb
                 }
                 else if (_tree[i] is Block)
                 {
-                    var result = _searchFor(name, _tree[i] as Block);
+                    var result = _searchFor(signature, _tree[i] as Block, _functionName);
                     if (result != null)
                         return result;
                 }
@@ -1811,14 +1859,20 @@ namespace Urb
             return null;
             //throw new NotImplementedException();
         }
+        
+        private static Token _findBlockReturnType(Block block)
+        {
+            throw new NotImplementedException();
+        }
 
-        private static Token _findTypeInLocalFunction(string _f, object[] _tree, int _index, string name)
+        private static Token _findTypeInLocalFunction
+            (string _inspectingMethod, object[] _tree, int _index, string parameterName, string _functionName)
         {
             /// Local Context:
-            if (_primitiveForms.ContainsKey(_f))
+            if (_primitiveForms.ContainsKey(_inspectingMethod))
             {
                 var _abstract = ((Expression)Activator.CreateInstance(
-                    _primitiveForms[_f], new[] { new object[] { } })).abstractType;
+                    _primitiveForms[_inspectingMethod], new[] { new object[] { } })).abstractType;
                 switch (_abstract)
                 {
                     case ApplyCase.Map:
@@ -1840,9 +1894,9 @@ namespace Urb
                                 }
                                 else
                                 {
-                                    var result = _searchFor(name, neighbour as Block);
+                                    var result = _searchFor(parameterName, neighbour as Block, _functionName);
                                     if (result != null)
-                                        neighbourCandidates.AddUnique(new Token(result, name));
+                                        neighbourCandidates.AddUnique(new Token(result, parameterName));
                                 }
                             }
                             _print("\nFound {0} solution.\n", neighbourCandidates.Count);
@@ -1855,7 +1909,9 @@ namespace Urb
                         throw new NotImplementedException();
 
                     case ApplyCase.Return:
-                        _parameterDict[name].isSameAsReturnType = true;
+                        _print("\nscanning at return -> {0}", parameterName);
+                        _parameterDict[parameterName].isSameAsReturnType = true;
+
                         break;
 
                     default: throw new NotImplementedException();
@@ -2228,8 +2284,9 @@ namespace Urb
                 {
                     Console.WriteLine("  {0}", ce.ToString());
                     Console.WriteLine();
-                }
-                throw new Exception("Can't compile code due to error.");
+                }           
+                _warning("\nCan't compile code due to error.");
+                return null;
             }
             else
             {
