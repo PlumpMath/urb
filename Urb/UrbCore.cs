@@ -140,7 +140,7 @@ namespace Urb
 		private string ViewLine(Token[] line)
 		{
 			var s = String.Empty;
-			foreach (var word in line) s += String.Format("{0} ", word.Value);
+			foreach (var word in line) s += String.Format("{0} ", word.value);
 			return s;
 		}
 
@@ -178,7 +178,7 @@ namespace Urb
 
 				var first_token = _token_array[i];
 
-				switch (first_token.Name)
+				switch (first_token.type)
 				{
 					case "newline":
 						if (acc.Count == 0) break;
@@ -205,7 +205,7 @@ namespace Urb
 					default:
 						// accumulate them.
 						acc.Add(first_token);
-						if (isDebugTransform) Console.Write("{0} ", first_token.Value);
+						if (isDebugTransform) Console.Write("{0} ", first_token.value);
 						break;
 				}
 			}
@@ -247,28 +247,28 @@ namespace Urb
 		{
 			#region Prefix keyword first.
 			if (line.Length == 0) return;
-			switch (line[0].Value)
+			switch (line[0].value)
 			{
 				case "require":
 					// added as references too.
-					references.Add(line[1].Value + ".dll");
+					references.Add(line[1].value + ".dll");
 					// require a => Using a;
-					AddSource(string.Format("using {0};", line[1].Value));
+					AddSource(string.Format("using {0};", line[1].value));
 					break;
 				case "import":
 					// require a => Using a;
-					AddSource(string.Format("using {0};", line[1].Value));
+					AddSource(string.Format("using {0};", line[1].value));
 					break;
 				case "class":
 					//InspectLine(acc);
 					switch (line.Length)
 					{
 						case 2: // class A {} 
-							AddSource(string.Format("\nclass {0} {{", line[1].Value));
+							AddSource(string.Format("\nclass {0} {{", line[1].value));
 							break;
 						// class A: B
 						case 4:
-							AddSource(string.Format("\nclass {0} : {1} {{", line[1].Value, line[3].Value));
+							AddSource(string.Format("\nclass {0} : {1} {{", line[1].value, line[3].value));
 							break;
 
 						default:
@@ -283,9 +283,9 @@ namespace Urb
 					var pairs = new List<string>();
 					foreach (var word in line)
 					{
-						if (word.Name == "pair")
+						if (word.type == "pair")
 						{
-							var pair = word.Value.Split(new char[] { ':' });
+							var pair = word.value.Split(new char[] { ':' });
 							var new_pair = pair[1] + " " + pair[0];
 							pairs.Add(new_pair);
 							if (isDebugTransform) Console.Write("{0} ", new_pair);
@@ -312,22 +312,22 @@ namespace Urb
 					var is_literal = false;
 					foreach (var word in line)
 					{
-						if (word.Value != "if")
-							switch (word.Value)
+						if (word.value != "if")
+							switch (word.value)
 							{
 								case "and": if_statement += "&& "; break;
 								case "or": if_statement += "|| "; break;
 								default: // Just literals
-									if (is_literal && word.Name == "literal")
+									if (is_literal && word.type == "literal")
 									{
 										// double literal mean ( )
-										if_statement += string.Format("({0})", word.Value);
+										if_statement += string.Format("({0})", word.value);
 									}
 									else {
-										if_statement += string.Format("{0} ", word.Value);
+										if_statement += string.Format("{0} ", word.value);
 									}
 									// memorized.
-									is_literal = word.Name == "literal";
+									is_literal = word.type == "literal";
 
 									break;
 
@@ -355,9 +355,9 @@ namespace Urb
 				#endregion
 				// Statement
 				default:
-					switch (line[0].Name)
+					switch (line[0].type)
 					{
-						case "label": AddSource(line[0].Value); break;
+						case "label": AddSource(line[0].value); break;
 						///////////////////////////////////////
 						/// 								///
 						/// Here come the part of @variable ///
@@ -366,23 +366,23 @@ namespace Urb
 						case "global_variable":
 						case "instance_variable":
 						case "literal":
-							if (!variables.Contains(line[0].Value))
+							if (!variables.Contains(line[0].value))
 							{
 								// we need to make parens converter -> somerthing<A,B> 
-								variables.Add(line[0].Value);
-								if (isDebugTransform) Console.WriteLine("variable: {0}", line[0].Value);
+								variables.Add(line[0].value);
+								if (isDebugTransform) Console.WriteLine("variable: {0}", line[0].value);
 							}
 							StatementBuild(line);
 							break;
 						case "compiler_directive":
-							switch (line[0].Value)
+							switch (line[0].value)
 							{
-								case "jump": AddSource(string.Format("goto {0};", line[1].Value)); break;
+								case "jump": AddSource(string.Format("goto {0};", line[1].value)); break;
 								default: break;
 							}
 							break;
 
-						default: throw new NotImplementedException(line[0].Name);
+						default: throw new NotImplementedException(line[0].type);
 							//break;
 					}
 					break;
@@ -396,26 +396,26 @@ namespace Urb
 			{
 				// inspecting.. //
 				// AddSource(string.Format("{0}:{1}\n", i, line[i].Value));
-				switch (line[i].Name)
+				switch (line[i].type)
 				{
 					case "integer": return "Int32";
 					case "float": return "float";
 					case "string": return "String";
-					case "literal": throw new NotImplementedException(line[i].Name);
+					case "literal": throw new NotImplementedException(line[i].type);
 					case "special_form":
-						switch (line[i].Value)
+						switch (line[i].value)
 						{
 							case "new":
 								_is_needed_closing = true;
 								string type = "";
 								for (int j = i + 1; j < line.Length; j++)
 								{
-									type += line[j].Value;
+									type += line[j].value;
 								}
 								return type;
-							default: throw new NotImplementedException(line[i].Name);
+							default: throw new NotImplementedException(line[i].type);
 						}
-					default: throw new NotImplementedException(line[i].Name);
+					default: throw new NotImplementedException(line[i].type);
 				}
 			}
 			throw new NotImplementedException(line[2].ToString());
@@ -431,7 +431,7 @@ namespace Urb
 			_is_needed_closing = false;
 			foreach (var word in line)
 			{
-				switch (word.Name)
+				switch (word.type)
 				{
 					case "integer":
 					case "float":
@@ -442,24 +442,24 @@ namespace Urb
 							statement += "(";
 							is_opened = true;
 						}
-						statement += word.Value + " ";
+						statement += word.value + " ";
 						is_literal = true;
 						break;
 					case "instance_variable":
-						statement += string.Format("private {0} {1} ", InspectTypeAssignment(line), word.Value.Substring(1));
+						statement += string.Format("private {0} {1} ", InspectTypeAssignment(line), word.value.Substring(1));
 						break;
 					case "global_variable":
-						statement += string.Format("public {0} {1} ", InspectTypeAssignment(line), word.Value.Substring(1));
+						statement += string.Format("public {0} {1} ", InspectTypeAssignment(line), word.value.Substring(1));
 						break;
 					case "pair": break;
 					case "separator":
-						statement += word.Value;
+						statement += word.value;
 						break;
 					case "special_form": /// new / with
-						switch (word.Value)
+						switch (word.value)
 						{
 							case "new":
-								statement += word.Value + " ";
+								statement += word.value + " ";
 								is_new = true;
 								break;
 							case "with":
@@ -472,7 +472,7 @@ namespace Urb
 					case "operator":
 					case "boolean_operator":
 					case "boolean_compare":
-						statement += word.Value + " ";
+						statement += word.value + " ";
 						break;
 					case "parens":
 						// Need parens converter here.
@@ -497,7 +497,7 @@ namespace Urb
 				{
 					/// We ignore newline.
 					//Console.WriteLine("PeakNext:" + PeakNextToken(1).Name);
-					if (PeakNextToken(1).Value != "end")
+					if (PeakNextToken(1).value != "end")
 						statement += ",";
 				}
 			}

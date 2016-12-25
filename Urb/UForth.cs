@@ -139,7 +139,7 @@ namespace Urb
         private string ViewLine(Token[] line)
         {
             var s = String.Empty;
-            foreach (var word in line) s += String.Format("{0} ", word.Value);
+            foreach (var word in line) s += String.Format("{0} ", word.value);
             return s;
         }
 
@@ -462,7 +462,7 @@ namespace Urb
                     /// body params name.
                     var body = (frame.Pop() as List);
                     var parameters = (frame.Pop() as List);
-                    var name = (frame.Pop() as Token).Value;
+                    var name = (frame.Pop() as Token).value;
                     /// override current function.
                     if (userFunctions.ContainsKey(name)) userFunctions.Remove(name);
 
@@ -478,7 +478,7 @@ namespace Urb
         public static void CreateVariable(Stack<object> frame)
         {
             /// 1 A var.
-            var name = (frame.Pop() as Token).Value;
+            var name = (frame.Pop() as Token).value;
             var value = frame.Pop();
             /// override.
             if (userVars.ContainsKey(name)) userVars.Remove(name);
@@ -579,19 +579,19 @@ namespace Urb
 
         public object BuildValueType(Token token)
         {
-            switch (token.Name)
+            switch (token.type)
             {
-                case "string": return token.Value;
-                case "integer": return Int32.Parse(token.Value);
-                case "double": return double.Parse(token.Value);
+                case "string": return token.value;
+                case "integer": return Int32.Parse(token.value);
+                case "double": return double.Parse(token.value);
                 case "float":
                     return float.Parse(
-              token.Value.ToString().Substring(0,
-              token.Value.ToString().Length - 1));
+              token.value.ToString().Substring(0,
+              token.value.ToString().Length - 1));
                 case "symbol":
-                    return new Atom(token.Name,
-                                    token.Value.Substring(1, token.Value.Length - 1));
-                default: return new Atom(token.Name, token.Value);
+                    return new Atom(token.type,
+                                    token.value.Substring(1, token.value.Length - 1));
+                default: return new Atom(token.type, token.value);
             }
         }
 
@@ -715,7 +715,7 @@ namespace Urb
 
         private void EatToken(Token token, Dictionary<string, object> env)
         {
-            switch (token.Name)
+            switch (token.type)
             {
                 case "eval_mode":
                     RestoreCompilerState(true);
@@ -727,7 +727,7 @@ namespace Urb
 
                 case "separator":
                     /// () []
-                    switch (token.Value)
+                    switch (token.value)
                     {
                         case "(":
                             ChangeCompilerState(CompilerMode.Sleep);
@@ -745,7 +745,7 @@ namespace Urb
                     }
                     break;
 
-                case "backward": coreFunctions[token.Value].Eval(evaluationStack, this); break;
+                case "backward": coreFunctions[token.value].Eval(evaluationStack, this); break;
                 case "forward": break;
 
                 case "boolean_compare":
@@ -755,19 +755,19 @@ namespace Urb
                     {
                         case CompilerMode.Awake:
                             /// if it's primitives: 
-                            if (coreFunctions.ContainsKey(token.Value))
+                            if (coreFunctions.ContainsKey(token.value))
                             {
                                 ApplyPrimitives(token, env);
                             }
                             /// if it's defined:
-                            else if (userFunctions.ContainsKey(token.Value))
+                            else if (userFunctions.ContainsKey(token.value))
                             {
                                 ApplyUserFunction(token, env);
                             }
                             /// if it's variable from env:
-                            else if (env.ContainsKey(token.Value))
+                            else if (env.ContainsKey(token.value))
                             {
-                                evaluationStack.Push(env[token.Value]);
+                                evaluationStack.Push(env[token.value]);
                             }
                             break;
                         case CompilerMode.Sleep:
@@ -787,10 +787,10 @@ namespace Urb
         public void ApplyUserFunction(Token token, Dictionary<string, object> env)
         {
             var localVars = new Dictionary<string, object>();
-            var function = userFunctions[token.Value];
+            var function = userFunctions[token.value];
             foreach (Token t in function.parameters)
             {
-                var parameter = t.Value;
+                var parameter = t.value;
                 localVars.Add(parameter as string, null);
                 localVars[parameter as string] = evaluationStack.Pop();
             }
@@ -834,7 +834,7 @@ namespace Urb
             switch (compilerMode)
             {
                 case CompilerMode.Awake: // eval.
-                    var result = coreFunctions[token.Value].Eval(evaluationStack, this);
+                    var result = coreFunctions[token.value].Eval(evaluationStack, this);
                     if (result != null) evaluationStack.Push(result); // push result >> stack.
                     break;
                 case CompilerMode.Sleep: // store!

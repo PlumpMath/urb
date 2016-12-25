@@ -123,7 +123,7 @@ namespace Urb
 
         private void EatToken(Token token, Dictionary<string, object> env)
         {
-            switch (token.Name)
+            switch (token.type)
             {
                 case "eval_mode":
                     compilerMode = CompilerMode.Awake;
@@ -137,7 +137,7 @@ namespace Urb
 
                 case "separator":
                     /// () []
-                    switch (token.Value)
+                    switch (token.value)
                     {
                         case "(":
                             compilerMode = CompilerMode.Sleep;
@@ -164,19 +164,19 @@ namespace Urb
                     {
                         case CompilerMode.Awake:
                             /// if it's primitives: 
-                            if (env.ContainsKey(token.Value))
+                            if (env.ContainsKey(token.value))
                             {
                                 Apply(token, env);
                             }
                             /// if it's defined:
-                            else if (env.ContainsKey(token.Value))
+                            else if (env.ContainsKey(token.value))
                             {
                                 Apply(token, env);
                             }
                             /// if it's variable from env:
-                            else if (env.ContainsKey(token.Value))
+                            else if (env.ContainsKey(token.value))
                             {
-                                evaluationStack.Push(env[token.Value]);
+                                evaluationStack.Push(env[token.value]);
                             }
                             break;
                         case CompilerMode.Sleep:
@@ -232,7 +232,7 @@ namespace Urb
         private string ViewLine(Token[] line)
         {
             var s = String.Empty;
-            foreach (var word in line) s += String.Format("{0} ", word.Value);
+            foreach (var word in line) s += String.Format("{0} ", word.value);
             return s;
         }
 
@@ -294,18 +294,18 @@ namespace Urb
 
         public object BuildValueType(Token token)
         {
-            switch (token.Name)
+            switch (token.type)
             {
-                case "string": return token.Value;
-                case "integer": return Int32.Parse(token.Value);
-                case "double": return double.Parse(token.Value);
+                case "string": return token.value;
+                case "integer": return Int32.Parse(token.value);
+                case "double": return double.Parse(token.value);
                 case "float": return float.Parse(
-                                token.Value.ToString().Substring(0,
-                                token.Value.ToString().Length - 1));
+                                token.value.ToString().Substring(0,
+                                token.value.ToString().Length - 1));
                 case "symbol":
-                    return new Atom(token.Name,
-                                    token.Value.Substring(1, token.Value.Length - 1));
-                default: return new Atom(token.Name, token.Value);
+                    return new Atom(token.type,
+                                    token.value.Substring(1, token.value.Length - 1));
+                default: return new Atom(token.type, token.value);
             }
         }
 

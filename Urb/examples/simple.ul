@@ -5,7 +5,7 @@
 ;;;                               ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(load System)
+(using System)
 (using System.Collections.Generic)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -41,7 +41,7 @@
 (define :dict (new Dictionary<String,String>)) 
 
 ;;; type inference: automatically "void" when got no info or return.
-(define (print line::string args::params-object[])
+(define (print line args::params-object[])
  	(Console.WriteLine line args))
 
 ;;; type inference: return type linking.        

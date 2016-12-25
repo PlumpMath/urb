@@ -161,7 +161,7 @@ namespace Urb
         private static string ViewLine(Token[] line)
         {
             var s = String.Empty;
-            foreach (var word in line) s += String.Format("{0} ", word.Value);
+            foreach (var word in line) s += String.Format("{0} ", word.value);
             return s;
         }
 
@@ -282,7 +282,7 @@ namespace Urb
             _transformerIndex = index;
             while (i < tokens.Length)
             {
-                switch (tokens[i].Value)
+                switch (tokens[i].value)
                 {
                     case ")":
                         _close++;
@@ -305,8 +305,8 @@ namespace Urb
 
                     default:
                         /* Skip them all. */
-                        if (tokens[i].Name == "newline" ||
-                           tokens[i].Name == "comment")
+                        if (tokens[i].type == "newline" ||
+                           tokens[i].type == "comment")
                         {
                             i++;
                             continue;
@@ -318,7 +318,7 @@ namespace Urb
 						 * Would we transform token here ?	*
 						 * 									*
 						 ************************************/
-                        if (isDebugTransform) _print(" {0}", tokens[i].Value);
+                        if (isDebugTransform) _print(" {0}", tokens[i].value);
                         break;
                 }
                 // cached index. //
@@ -377,7 +377,7 @@ namespace Urb
                 var e = block.elements[i];
                 if (e.GetType() == typeof(Token))
                 {
-                    var v = (e as Token).Name;
+                    var v = (e as Token).type;
                     switch (v)
                     {
                         case "quote":
@@ -450,36 +450,36 @@ namespace Urb
             {
                 // transform it into primitive if possible //
                 var token = (Token)block.head;
-                switch (token.Name)
+                switch (token.type)
                 {
                     // All Primitives //
                     case "boolean_compare":
                     case "operator":
                     case "literal":
-                        if (_specialForms.ContainsKey(token.Value))
+                        if (_specialForms.ContainsKey(token.value))
                         {
                             // mean it's implemented primitive. //
                             return (Expression)Activator.CreateInstance(
-                                _specialForms[token.Value],
+                                _specialForms[token.value],
                                 new[] { block.rest });
                         }
-                        else if (_primitiveForms.ContainsKey(token.Value))
+                        else if (_primitiveForms.ContainsKey(token.value))
                         {
                             // mean it's implemented primitive. //
                             return (Expression)Activator.CreateInstance(
-                                _primitiveForms[token.Value],
+                                _primitiveForms[token.value],
                                 new[] { block.evaluatedRest });
                         }
                         else
                         {
                             // normal function or invoke. //   
                             var f = new LiteralForm(block.evaluatedRest);
-                            f.Init(new Atom(token.Name, token.Value));
+                            f.Init(new Atom(token.type, token.value));
                             return f;
                         }
                     //throw new NotImplementedException("Unknown form: " + token.Value);
 
-                    default: throw new NotSupportedException(token.Name);
+                    default: throw new NotSupportedException(token.type);
                 }
             }
             return null;
@@ -487,23 +487,23 @@ namespace Urb
 
         private static Atom _buildAtom(Token token)
         {
-            switch (token.Name)
+            switch (token.type)
             {
                 case "symbol":
-                    return new Atom(token.Name,
-                                    token.Value.Substring(1, token.Value.Length - 1));
-                case "Int32": return new Atom("Int32", Int32.Parse(token.Value));
+                    return new Atom(token.type,
+                                    token.value.Substring(1, token.value.Length - 1));
+                case "Int32": return new Atom("Int32", Int32.Parse(token.value));
                 case "Double":
-                    var d = double.Parse(token.Value);
+                    var d = double.Parse(token.value);
                     return new Atom("Double", d);
 
                 case "float":
-                    var number = float.Parse(token.Value.Substring(0,
-                      token.Value.ToString().Length - 1));
+                    var number = float.Parse(token.value.Substring(0,
+                      token.value.ToString().Length - 1));
                     return new Atom("float", number);
                 case "bool":
-                    return new Atom("bool", token.Value == "true");
-                default: return new Atom(token.Name, token.Value);
+                    return new Atom("bool", token.value == "true");
+                default: return new Atom(token.type, token.value);
             }
         }
         private static List<Expression> _mainBody = new List<Expression>();
@@ -865,7 +865,7 @@ namespace Urb
 			 *  3. body.
 			 * 
 			 *****************************************************************/
-            var name = ((Token)args[0]).Value;
+            var name = ((Token)args[0]).value;
             var attributes = "";
 
             switch (args.Length)
@@ -970,8 +970,8 @@ namespace Urb
             }
             else // just value //
             {
-                type = ((Token)body).Name;
-                binding = ((Token)body).Value;
+                type = ((Token)body).type;
+                binding = ((Token)body).value;
             }
             return String.Format("{0} {1} {2} = {3};",
                 attributes, type, name, binding);
@@ -990,7 +990,7 @@ namespace Urb
 
         private static string[] _pair(Token token)
         {
-            var acc = token.Value.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries);
+            var acc = token.value.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries);
             for(int i = 0; i < acc.Length; i++)
             {
                 if (acc[i].Contains("-"))
@@ -1024,23 +1024,23 @@ namespace Urb
             string name = String.Empty;
             string returnType = String.Empty;
 
-            if (headSign.Name == "pair")
+            if (headSign.type == "pair")
             {
                 var _head = _pair(headSign);
                 name = _head[0];
                 returnType = _head[1];
             }
-            else if (inferenceMap.ContainsKey(headSign.Value))
+            else if (inferenceMap.ContainsKey(headSign.value))
             {
                 /// calling inference-map for help:
-                var _functionNameToken = inferenceMap[headSign.Value];
-                name = _functionNameToken.Name;
-                returnType = _functionNameToken.Value;
+                var _functionNameToken = inferenceMap[headSign.value];
+                name = _functionNameToken.type;
+                returnType = _functionNameToken.value;
             }
             else
             {
                 /// simple:
-                name = headSign.Value;
+                name = headSign.value;
                 returnType = "void";
             }
             /// Build parameters..
@@ -1051,16 +1051,16 @@ namespace Urb
                 foreach (Token parameter in signature.elements)
                 {
                     var result = String.Empty;
-                    if (parameter.Name == "pair")
+                    if (parameter.type == "pair")
                     {
                         result = string.Format(" {1} {0},", _pair(parameter));
                     }
-                    else if (inferenceMap.ContainsKey(parameter.Value))
+                    else if (inferenceMap.ContainsKey(parameter.value))
                     {
 
-                        var _token = inferenceMap[parameter.Value];
+                        var _token = inferenceMap[parameter.value];
 
-                        result = string.Format(" {1} {0},", _token.Name, _token.Value);
+                        result = string.Format(" {1} {0},", _token.type, _token.value);
                     }
                     arguments.Append(result);
                 }
@@ -1175,10 +1175,10 @@ namespace Urb
                     foreach(Token parameter in (args[0] as Block).elements)
                     {
                         ///TODO: consider it's pretty unknown.
-                        if( parameter.Name != "pair")
+                        if( parameter.type != "pair")
                             //&& parameter.Value!= ((args[0] as Block).head as Token).Value)
                             /// We allow function return type to join :
-                            _inferenceMap.Add(parameter.Value, parameter);
+                            _inferenceMap.Add(parameter.value, parameter);
                     }
 
                     _body = new Block(args);
@@ -1541,7 +1541,7 @@ namespace Urb
             {
                 /// search for the name.
                 _parameterDict.Add(name, new PInfo() { isFunction = counter == 0 });
-                var _type = _parameters[name].Name;
+                var _type = _parameters[name].type;
                 _type = _searchFor(name, _body);
                 if (_type == null)
                 {
@@ -1641,9 +1641,9 @@ namespace Urb
             return _dict;
         }
 
-        private static List<string> _findMethodCandidates(string _methodName, List<string> _candidates, object[] _tree, int _position)
+        private static HashList<string> _findMethodCandidates(string _methodName, List<string> _candidates, object[] _tree, int _position)
         {
-            var _typeCandidates = new List<string>();
+            var _typeCandidates = new HashList<string>();
 
             foreach (var _candidate in _candidates)
             {
@@ -1665,7 +1665,7 @@ namespace Urb
                             {
                                 Console.Write("{0} ", _parameter.ParameterType.Name);
                             }
-                            _typeCandidates.Add(_parameters[_position - 1].ParameterType.Name);
+                            _typeCandidates.AddUnique(_parameters[_position - 1].ParameterType.Name);
 
                         }
                     }
@@ -1678,7 +1678,7 @@ namespace Urb
             return _typeCandidates;
         }
 
-        private static List<string> _typeCandidates(string _f, object[] _tree, int _position)
+        private static HashList<string> _typeCandidates(string _f, object[] _tree, int _position)
         {
             /// mean it's from .NET:
             /// break into -> _method + _ns
@@ -1690,7 +1690,7 @@ namespace Urb
             var _dict = _allReferencesCache();
             _print("\ncached all using references.\n");
             /// Get all possible candidate CLASS by using namespace:
-            var _candidates = new List<string>();
+            var _candidates = new HashList<string>();
             foreach (var _namespace in _usingNamespaces)
             {
                 var _a = _namespace + "." + _className;
@@ -1698,7 +1698,7 @@ namespace Urb
                 if (_dict.Contains(_a))
                 {
                     _print("candidate: {0}", _a);
-                    _candidates.Add(_a);
+                    _candidates.AddUnique(_a);
                 }
             }
             /// Get possible types from method's parameters:
@@ -1728,16 +1728,23 @@ namespace Urb
                 if (_tree[i] is Token)
                 {
                     var token = _tree[i] as Token;
-                    Console.WriteLine("scanning: '{0}' -> '{1}'", token.Value, name);
-                    if (token.Value == name)
+                    Console.WriteLine("scanning: '{0}' -> '{1}'", token.value, name);
+                    if (token.value == name)
                     {
-                        Console.WriteLine("'{0}' is used by '{1}'.", name, (_tree[0] as Token).Value);
-                        var _f = (_tree[0] as Token).Value;
+                        Console.WriteLine("'{0}' is used by '{1}'.", name, (_tree[0] as Token).value);
+                        var _f = (_tree[0] as Token).value;
                         if (_f.Contains("."))
                         {
                             var result = _typeCandidates(_f, _tree, i);
-                            if (result.Count > 0 || result.Count == 0)
+                            if (result.Count > 1 || result.Count == 0)
                             {
+                                /// Linking collected types to see if they're the same:
+                                ///TODO: We should use Dict or Set in this case anyway.
+                                var _filter = new HashList<string>();
+                                foreach (var candidate in result)
+                                    if (!_filter.Contains(candidate))
+                                        _filter.Add(candidate);
+
                                 _print("can't determine type using !");
                                 throw new Exception();
                             }
@@ -1750,33 +1757,33 @@ namespace Urb
                             {
                                 /// it's nothing here.
                             }
-                            else if (result.Name == "literal")
+                            else if (result.type == "literal")
                             {
                                 /// if dependent variable is there.
-                                if (_parameterDict.ContainsKey(result.Value) &&
-                                    _parameterDict[result.Value].isVerified)
+                                if (_parameterDict.ContainsKey(result.value) &&
+                                    _parameterDict[result.value].isVerified)
                                 {
-                                    return _parameterDict[result.Value].exactType;
+                                    return _parameterDict[result.value].exactType;
                                 }
                                 else 
                                 /// mean it depend on other variable !
-                                _parameterDict[name].equalTypeNeighbour = result.Value;
+                                _parameterDict[name].equalTypeNeighbour = result.value;
                             }
-                            else return result.Name;
+                            else return result.type;
                         }
                     }
                     else if (_parameterDict[name].isFunction)
                     {
                         /// checking return :
-                        if ((_tree[i] as Token).Value == "return")
+                        if ((_tree[i] as Token).value == "return")
                         {
                             if (_tree[i + 1] is Token && (i + 1 <= _tree.Length))
                             {
                                 var _token = (_tree[i + 1] as Token);
-                                switch (_token.Name)
+                                switch (_token.type)
                                 {
                                     case "literal":
-                                        _parameterDict[name].equalTypeNeighbour = _token.Value;
+                                        _parameterDict[name].equalTypeNeighbour = _token.value;
                                         break;
                                     case "bool":
                                     case "Int32":
@@ -1816,7 +1823,7 @@ namespace Urb
                 {
                     case ApplyCase.Map:
                         /// as pure numeric:
-                        var neighbourCandidates = new List<Token>();
+                        var neighbourCandidates = new HashList<Token>();
                         var l = new List<object>(_tree);
                         l.Remove(l[0]);
                         l.Remove(_tree[_index]);
@@ -1827,15 +1834,15 @@ namespace Urb
                                 if (neighbour is Token)
                                 {
                                     var _neighbour = neighbour as Token;
-                                    _print("found neighbour {0}:{1}.\n", _neighbour.Name, _neighbour.Value);
+                                    _print("found neighbour {0}:{1}.\n", _neighbour.type, _neighbour.value);
                                     /// Should be primitive type:
-                                    neighbourCandidates.Add(_neighbour);
+                                    neighbourCandidates.AddUnique(_neighbour);
                                 }
                                 else
                                 {
                                     var result = _searchFor(name, neighbour as Block);
                                     if (result != null)
-                                        neighbourCandidates.Add(new Token(result, name));
+                                        neighbourCandidates.AddUnique(new Token(result, name));
                                 }
                             }
                             _print("\nFound {0} solution.\n", neighbourCandidates.Count);
@@ -2019,9 +2026,9 @@ namespace Urb
                     if (_tree.Count == 0) return new Nil();
 
                     // Is a Quoted Value/Expression ?                  //
-                    if (tokens[0].Name == "quote")
+                    if (tokens[0].type == "quote")
                     {
-                        if (_tree.Count == 0 && tokens.Count == 2) return new Quote(tokens[1].Value);
+                        if (_tree.Count == 0 && tokens.Count == 2) return new Quote(tokens[1].value);
                         if (_tree.Count == 1 && tokens.Count > 2) return new Quote(_tree);
                     }
                     // Eval an expression :                            //
