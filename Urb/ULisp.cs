@@ -756,6 +756,9 @@ namespace Urb
             {
                 _loadedReferences.Add(args[0].ToString());
                 _usingNamespaces.Add(args[0].ToString());
+                ///TODO: load into appDomain anyway, and watch this.
+                var asm = Assembly.Load(args[0].ToString());
+                AppDomain.CurrentDomain.Load(asm.GetName());
             }
             public override string CompileToCSharp()
             {
@@ -1663,11 +1666,12 @@ namespace Urb
             return _dict;
         }
 
-        private static HashList<string> _findMethodCandidates(string _methodName, List<string> _candidates, object[] _tree, int _position)
+        private static HashList<string> _findPossibleParameterTypes
+        (string methodName, List<string> possibleClasses, object[] currentExpression, int position)
         {
             var _typeCandidates = new HashList<string>();
 
-            foreach (var _candidate in _candidates)
+            foreach (var _candidate in possibleClasses)
             {
                 _print("\nfor candidate: {0}", _candidate);
 
@@ -1677,17 +1681,17 @@ namespace Urb
                 /// caching methods to find
                 foreach (var _method in _methods)
                 {
-                    if (_method.Name == _methodName)
+                    if (_method.Name == methodName)
                     {
                         var _parameters = _method.GetParameters();
-                        if (_parameters.Length == _tree.Length - 1)
+                        if (_parameters.Length == currentExpression.Length - 1)
                         {
-                            Console.Write("\n  {0} : ", _methodName);
+                            Console.Write("\n  {0} : ", methodName);
                             foreach (var _parameter in _parameters)
                             {
                                 Console.Write("{0} ", _parameter.ParameterType.Name);
                             }
-                            _typeCandidates.AddUnique(_parameters[_position - 1].ParameterType.Name);
+                            _typeCandidates.AddUnique(_parameters[position - 1].ParameterType.Name);
 
                         }
                     }
@@ -1700,19 +1704,34 @@ namespace Urb
             return _typeCandidates;
         }
 
-        private static HashList<string> _typeCandidates(string _f, object[] _tree, int _position)
+        private static string[] _splitMethodNameAndClass(string functionInvoker)
         {
             /// mean it's from .NET:
             /// break into -> _method + _ns
-            var _lastIndex = _f.LastIndexOf(".");
-            var _methodName = _f.Substring(_lastIndex + 1);
-            var _className = _f.Replace("." + _methodName, "");
+            var _lastIndex = functionInvoker.LastIndexOf(".");
+            var _methodName = functionInvoker.Substring(_lastIndex + 1);
+            var _className = functionInvoker.Replace("." + _methodName, "");
             _print("broken into: {0} : {1}", _className, _methodName);
+            return new string[]
+            {
+                _methodName,
+                _className
+            };
+        }
+
+        private static HashList<string> _findFullNameClasses(string functionInvoker)
+        {
             /// Get current references cache:
             var _dict = _allReferencesCache();
             _print("\ncached all using references.\n");
+
+            /// Get method name + path.
+            var _methodClassName = _splitMethodNameAndClass(functionInvoker);
+            var _methodName = _methodClassName[0];
+            var _className = _methodClassName[1];
+
             /// Get all possible candidate CLASS by using namespace:
-            var _candidates = new HashList<string>();
+            var _classCandidates = new HashList<string>();
             foreach (var _namespace in _usingNamespaces)
             {
                 var _a = _namespace + "." + _className;
@@ -1720,11 +1739,52 @@ namespace Urb
                 if (_dict.Contains(_a))
                 {
                     _print("candidate: {0}", _a);
-                    _candidates.AddUnique(_a);
+                    _classCandidates.AddUnique(_a);
                 }
+            }                           
+            return _classCandidates;
+        }
+
+        private static List<MethodInfo> _findMethods(HashList<string> possibleClassNames)
+        {
+            var _methodInfos = new List<MethodInfo>();
+            /// seeking...
+            foreach (var _candidate in possibleClassNames)
+            {
+                _print("\nfor candidate: {0}", _candidate);
+
+                var _class = Type.GetType(_candidate);
+                var _methods = _class.GetMethods();
+                foreach (var method in _methods)
+                    _methodInfos.Add(method);
             }
+            return _methodInfos;
+        }
+
+        private static List<MethodInfo> _findMethodOverload(string functionInvoker)
+        {
+            var _methodName = _splitMethodNameAndClass(functionInvoker)[0];
+
+            var _classCandidates = _findFullNameClasses(functionInvoker);
+
+            var _methodInfos = _findMethods(_classCandidates);
+
+            var _methodCandidates = new List<MethodInfo>();
+
+            foreach(var methodInfo in _methodInfos)
+            {
+                if (methodInfo.Name == _methodName)
+                    _methodCandidates.Add(methodInfo);
+            }
+
+            return _methodCandidates; 
+        }
+
+        private static HashList<string> _findParameterTypeOfMethod(string functionFullName, object[] tree, int parameterPosition)
+        {
+            var _candidates = _findFullNameClasses(functionFullName);
             /// Get possible types from method's parameters:
-            var _typeCandidates = _findMethodCandidates(_methodName, _candidates, _tree, _position);
+            var _typeCandidates = _findPossibleParameterTypes(functionFullName, _candidates, tree, parameterPosition);
             return _typeCandidates;
         }
 
@@ -1753,10 +1813,10 @@ namespace Urb
                     Console.WriteLine("scanning: '{0}' -> '{1}'", token.value, signature);
                     if (token.value == "return")
                     {
-                        /// special case:
+                        /// special case: finding function return type.
                         if (signature == _functionName)
                         {
-                            /// should figure out the type that is returned !
+                            /// should figure out the type that is returned.
                             if (_tree.Length == 2)
                             {
                                 if (_tree[1] is Block)
@@ -1766,6 +1826,10 @@ namespace Urb
                                     if (_returnType.type == "literal")
                                     {
                                         _parameterDict[signature].equalTypeNeighbour = _returnType.value;
+                                    }
+                                    else if(_returnType.type == "class")
+                                    {
+                                        _parameterDict[signature].exactType = _returnType.value; 
                                     }
                                 }
                                 else if (_tree[1] is Token)
@@ -1783,7 +1847,7 @@ namespace Urb
                         var _f = (_tree[0] as Token).value;
                         if (_f.Contains("."))
                         {
-                            var result = _typeCandidates(_f, _tree, i);
+                            var result = _findParameterTypeOfMethod(_f, _tree, i);
                             if (result.Count > 1 || result.Count == 0)
                             {
                                 /// Linking collected types to see if they're the same:
@@ -1862,6 +1926,30 @@ namespace Urb
         
         private static Token _findBlockReturnType(Block block)
         {
+            var f = block.head;
+            if(f is Token)
+            {
+                var fname = (f as Token).value.ToString();
+                if (fname.Contains("."))
+                {
+                    /// .net interop: 
+                    var _methods = _findMethodOverload(fname);
+                    if(_methods.Count > 1)
+                    {
+                        throw new NotImplementedException();
+                    }
+                    else
+                    {
+                        var _returnType = _methods[0].ReturnType;
+                        return new Token("class",_returnType.Name);
+                    }
+                }
+                else
+                {
+                    String.Format("");
+                    /// local function calling.
+                }
+            }
             throw new NotImplementedException();
         }
 

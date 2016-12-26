@@ -10,7 +10,7 @@
 ;;; unsolved: passing return type !
 (define (py_text x::float y::float z::float)
 	(return 
-		(string.Format
+		(String.Format
             "Pytago: {0}" 
             (+ (* x x)
                (* y y)
