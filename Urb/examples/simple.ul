@@ -7,18 +7,19 @@
 (using System)
 (attr :public :executable)
 
-;;; solved: passing return type !
-(define (py_text x::float y::float z::float)
-	(return 
-		(String.Format
-            "Pytago: {0}" 
-            (+ (* x x)
-               (* y y)
-               (* z z)))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;                                            ;;;
+;;; local function/parameter linking problem:  ;;;
+;;; require function to be better inform.      ;;;
+;;;                                            ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; local function linking for type inference:
-;;; require function to be better inform.
-(define (pytago x::float y::float z::float)
-    (Console.WriteLine (py_text x y z)))
+(define (print line::string)
+    (Console.WriteLine line)
+	(return false))
 
-(pytago 1f 2f 3f)
+(define (return_test line)
+    (return (print line)))
+
+(Console.WriteLine "{0}" (return_test "Hello during passing BOOL !"))
+(Console.ReadLine)

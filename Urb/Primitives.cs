@@ -513,13 +513,16 @@ namespace Urb
                 else return _buildMethod(args, null); // leave support later.
             }
         }
-
+        private static Dictionary<string, DefineForm> _definedForms = new Dictionary<string, DefineForm>();
         private class DefineForm : Expression
         {
             public bool isVariable = false;
             private SetForm _setExpression;
-            private Dictionary<string, Token> _inferenceMap;
-            private Block _body;
+
+            public Dictionary<string, Token> inferenceMap;
+            public Block body;
+            public string returnType;
+
             public DefineForm(object[] args) : base(args)
             {
                 if (!(args[0] is Block))
@@ -530,7 +533,7 @@ namespace Urb
                 else
                 {
                     /// filtering data
-                    _inferenceMap = new Dictionary<string, Token>();
+                    inferenceMap = new Dictionary<string, Token>();
                     var _count = 0;
                     var _functionName = String.Empty;
                     foreach (Token parameter in (args[0] as Block).elements)
@@ -539,7 +542,7 @@ namespace Urb
                         if (parameter.type != "pair")
                         {    //&& parameter.Value!= ((args[0] as Block).head as Token).Value)
                             /// We allow function return type to join :
-                            _inferenceMap.Add(parameter.value, parameter);
+                            inferenceMap.Add(parameter.value, parameter);
                             if (_count == 0) _functionName = parameter.value;
                         }
                         else
@@ -555,10 +558,14 @@ namespace Urb
                         _count++;
                     }
 
-                    _body = new Block(args);
+                    body = new Block(args);
 
                     /// Now replacing with type inference:
-                    _inferenceMap = _typeInference(_inferenceMap, _body, _functionName);
+                    inferenceMap = _typeInference(inferenceMap, body, _functionName);
+
+                    this.returnType = inferenceMap[_functionName].value;
+
+                    _definedForms.Add(_functionName, this);     
                 }
 
             }
@@ -571,7 +578,7 @@ namespace Urb
                 }
                 else
                 {
-                    return _buildMethod(args, _inferenceMap, isStatic: true);
+                    return _buildMethod(args, inferenceMap, isStatic: true);
                 }
             }
         }

@@ -16,6 +16,18 @@ namespace Urb
 			return string.Format("token-{1} ", type, value);
 		}
 
+        public string InferenceType
+        {
+            get { return value; }
+        }
+
+        public Token InferencedToken {
+        get
+            {
+                return new Token(value, type);
+            }
+        }
+
         public string Info
         {
             get { return string.Format("{0}-{1}", type, value); }

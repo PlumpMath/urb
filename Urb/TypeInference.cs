@@ -325,10 +325,9 @@ namespace Urb
                 {
                     var token = _tree[i] as Token;
                     Console.WriteLine("scanning: '{0}' -> '{1}'", token.value, signature);
-                    if (token.value == "return")
-                    {
-                        /// special case: finding function return type.
-                        if (signature == _functionName)
+                    
+                    #region Function -> Return Case 
+                    if (token.value == "return" && signature == _functionName)
                         {
                             /// should figure out the type that is returned.
                             if (_tree.Length == 2)
@@ -345,23 +344,37 @@ namespace Urb
                                     {
                                         _parameterDict[signature].isVerified = true;
                                         _parameterDict[signature].exactType = _returnType.value;
+                                        /// Done ! We found it !
+                                        return _parameterDict[signature].exactType;
                                     }
                                 }
                                 else if (_tree[1] is Token)
                                 {
                                     /// ??? depend on it !
-                                    _parameterDict[signature].equalTypeNeighbour = (_tree[1] as Token).value;
+                                    var _atom = _buildAtom(_tree[1] as Token);
+                                    if (_atom.type == "literal")
+                                    {
+                                        _parameterDict[signature].equalTypeNeighbour = (_tree[1] as Token).value;
+                                    }
+                                    else
+                                    {
+                                        return _atom.type;
+                                    }
                                 }
-                            }
-                        }
-                        /// Done !
-                        if (!_parameterDict[signature].isVerified)
+                            }           
                             throw new NotImplementedException();
-                        else return _parameterDict[signature].exactType;
                     }
+                    #endregion
+
+                    #region Identify Host Function that using this variable :
                     else if (token.value == signature)
                     {
                         Console.WriteLine("'{0}' is used by '{1}'.", signature, (_tree[0] as Token).value);
+                        /*******************************************
+                         *                                         *
+                         *  Start identify the host-function !     *
+                         *                                         *
+                         *******************************************/ 
                         var _f = (_tree[0] as Token).value;
                         if (_f.Contains("."))
                         {
@@ -382,10 +395,12 @@ namespace Urb
                         }
                         else
                         {
+                            /// Our Defined Function !
                             var result = _findTypeInLocalFunction(_f, _tree, i, signature, _functionName);
                             if (result == null)
                             {
-                                /// it's nothing here.
+                                /// it's nothing here.                
+                                return null;
                             }
                             else if (result.type == "literal")
                             {
@@ -398,45 +413,21 @@ namespace Urb
                                 else
                                     /// mean it depend on other variable !
                                     _parameterDict[signature].equalTypeNeighbour = result.value;
+                                return null;
                             }
                             else return result.type;
                         }
                     }
-                    else if (_parameterDict[signature].isFunction)
-                    {
-                        /// checking return :
-                        if ((_tree[i] as Token).value == "return")
-                        {
-                            if (_tree[i + 1] is Token && (i + 1 <= _tree.Length))
-                            {
-                                var _token = (_tree[i + 1] as Token);
-                                switch (_token.type)
-                                {
-                                    case "literal":
-                                        _parameterDict[signature].equalTypeNeighbour = _token.value;
-                                        break;
-                                    case "bool":
-                                    case "Int32":
-                                    case "float":
-                                    case "double":
-                                    case "symbol":
-                                        var _atom = _buildAtom(_token);
-                                        _parameterDict[signature].exactType = _atom.type;
-                                        _parameterDict[signature].isVerified = true;
-                                        break;
-                                    default:
-                                        throw new NotImplementedException();
-                                }
-                            }
-                        }
-                    }
+                    #endregion
+                             
                 }
+                          
                 else if (_tree[i] is Block)
                 {
                     var result = _searchFor(signature, _tree[i] as Block, _functionName);
                     if (result != null)
                         return result;
-                }
+                }      
             }
             return null;
             //throw new NotImplementedException();
@@ -506,7 +497,16 @@ namespace Urb
 
                         else throw new NotImplementedException();
                     }
-                    /// local function calling.         
+                    /// local function calling.    
+                    /********************************************************************
+                     *                                                                  *
+                     * simply make a collection of defined function in hosting context. *
+                     *                                                                  *
+                     ********************************************************************/
+                    if (_definedForms.ContainsKey(fname))
+                    {
+                        return new Token("class", _definedForms[fname].returnType);
+                    }
                     throw new NotImplementedException();
                 }
             }
@@ -568,10 +568,19 @@ namespace Urb
             else
             {
                 /// search on defined functions ?
+                if (_definedForms.ContainsKey(_inspectingMethod))
+                {
+                    _print("\nFound defined function: {0}", _inspectingMethod);
+                    if (_definedForms[_inspectingMethod].inferenceMap.ContainsKey(parameterName))
+                    {
+                        var _found = _definedForms[_inspectingMethod].inferenceMap[parameterName];
+                        _print("\nFound inferenced type: {0}", _found.value);
+                        return _found.InferencedToken;
+                    }
+                }
                 return null;
             }
-            return null;
-            //throw new NotImplementedException();
+            return null;                                
         }
 
         #endregion
