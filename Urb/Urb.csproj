@@ -41,15 +41,29 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ApplyCase.cs" />
+    <Compile Include="Block.cs" />
+    <Compile Include="Compiler.cs" />
+    <Compile Include="Expression.cs" />
     <Compile Include="HashList.cs" />
+    <Compile Include="Helper.cs" />
+    <Compile Include="Interpreter.cs" />
+    <Compile Include="Lexer.cs" />
+    <Compile Include="MacroExpander.cs" />
+    <Compile Include="Primitives.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UrbCore.cs" />
+    <Compile Include="Reader.cs" />
+    <Compile Include="SyntaxTable.cs" />
+    <Compile Include="Token2Expression.cs" />
+    <Compile Include="TokenTransformation.cs" />
+    <Compile Include="TypeInference.cs" />
+    <Compile Include="other_prototypes\Uruby.cs" />
     <Compile Include="Token.cs" />
-    <Compile Include="ULisp.cs" />
+    <Compile Include="Init.cs" />
     <Compile Include="Atom.cs" />
-    <Compile Include="UForth.cs" />
-    <Compile Include="Bailey.cs" />
+    <Compile Include="other_prototypes\UForth.cs" />
+    <Compile Include="other_prototypes\Bailey.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="examples\bailey.b" />

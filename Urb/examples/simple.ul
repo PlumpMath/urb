@@ -7,7 +7,7 @@
 (using System)
 (attr :public :executable)
 
-;;; unsolved: passing return type !
+;;; solved: passing return type !
 (define (py_text x::float y::float z::float)
 	(return 
 		(String.Format
@@ -19,6 +19,6 @@
 ;;; local function linking for type inference:
 ;;; require function to be better inform.
 (define (pytago x::float y::float z::float)
-    (print (py_text x y z)))
+    (Console.WriteLine (py_text x y z)))
 
 (pytago 1f 2f 3f)

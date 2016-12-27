@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 
 namespace Urb
 {
-	public class UrbCore
+	public class Uruby
 	{
 		#region Collections
 		// function
@@ -19,7 +19,7 @@ namespace Urb
 		#endregion
 
 		#region Init 
-		public UrbCore() { }
+		public Uruby() { }
 
 		// Create new codeblock.
 		public void NewCodeBlock(string name, Action codeBlock)
