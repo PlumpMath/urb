@@ -46,13 +46,13 @@ namespace Urb
             @"(?<bool>true|false)|" +
 
             // operators
-            @"(?<operator>\+=|\-=|\=|\+|\-|\*|\/|\^)|" +
+            @"(?<operator>\+\=|\-\=|\>\>|\+|\-|\*|\/|\^)|" +
             // boolean
-            @"(?<boolean_compare>[\>|\<|\==|\>=|\<=])|" +
-            @"(?<boolean_condition>[\|\||\&\&])|" +
+            @"(?<boolean_compare>\>|\<|\=\?|\>=|\<=)|" +
+            @"(?<boolean_condition>\|\||\&\&)|" +
 
             // #Comments
-            @"(?<comment>;;.*\n)|" +
+            @"(?<comment>\=\=.*\n)|" +
 
             // :Symbol
             @"(?<symbol>:[a-zA-Z0-9$_.]+)|" +

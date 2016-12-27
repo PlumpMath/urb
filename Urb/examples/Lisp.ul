@@ -1,60 +1,60 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;                               ;;;
-;;; load - load reference library ;;;
-;;; using is like using in C#.    ;;;
-;;;                               ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+===================================
+==                               ==
+== load - load reference library ==
+== using is like using in C#.    ==
+==                               ==
+===================================
 
 (using System)
 (using System.Collections.Generic)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;                               ;;;
-;;; :executable mean to have .EXE ;;;
-;;; :library mean to have .DLL    ;;;
-;;;                               ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+===================================
+==                               ==
+== :executable mean to have .EXE ==
+== :library mean to have .DLL    ==
+==                               ==
+===================================
 
 (attr :public :executable)
 (extends :Object)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;                                        ;;;
-;;; member will be public without static.  ;;;
-;;;                                        ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+============================================
+==                                        ==
+== member will be public without static.  ==
+==                                        ==
+============================================
 
 (member :warning "Only work with instance !")
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;                                        ;;;
-;;; define is naturally public and static. ;;;
-;;;                                        ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+============================================
+==                                        ==
+== define is naturally public and static. ==
+==                                        ==
+============================================
 
 (define :message "Hello")
 (define :dict (new Dictionary<String,String>)) 
 
-;;; type inference: "void" when got no info or return.
-;;; type inference: lookup cached references for type at position.
+== type inference: "void" when got no info or return.
+== type inference: lookup cached references for type at position.
 
 (define (printn line args::params-object[])
  	(Console.WriteLine line args))
 
-;;; type inference: return type linking. 
+== type inference: return type linking. 
 (define (print line::string)
     (Console.WriteLine line)
 	(return false))
 
-;;; type inference: based on neighbour in Mapping case.
+== type inference: based on neighbour in Mapping case.
 (define (factorial acc n)
     (if (> n 1)
         (return (factorial (* acc n) (- n 1)))
         (return acc)))
 
-;;; solved: passing return type !
+== solved passing return type !
 (define (py_text x::float y::float z::float)
 	(return 
 		(String.Format
@@ -64,7 +64,7 @@
                (* z z)))))
 
 
-;;; type-inference: void by no return/info.
+== type-inference: void by no return/info.
 (define (test)
     (var i 0)
     (label Condition)
@@ -77,31 +77,31 @@
     (Console.WriteLine "Good bye {0} !" result))
 
 
-;;; type-inference: passing return type from .net method !
+== type-inference: passing return type from .net method !
 (define (pytago x::float y::float z::float)
     (print (py_text x y z)))
                
 (pytago 1f 2f 3f)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;                                            ;;;
-;;; local function/parameter linking problem:  ;;;
-;;; require function to be better inform.      ;;;
-;;;                                            ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+================================================
+==                                            ==
+== local function/parameter linking problem:  ==
+== require function to be better inform.      ==
+==                                            ==
+================================================
 
 (define (return_test line)
     (return (print line)))
 
 (Console.WriteLine "{0}" (return_test "Hello during passing BOOL !"))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;                                                                 ;;;
-;;; statement outside functions goes to Main() function as default. ;;;
-;;;                                                                 ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+=====================================================================
+==                                                                 ==
+== statement outside functions goes to Main() function as default. ==
+==                                                                 ==
+=====================================================================
 
-;;;(print "{0} {1} !" message "message")
+==(print "{0} {1} !" message "message")
 (printn "{0}" (factorial 1 10))
 (pytago 1.0f 2.0f 3.0f)
 (test)
