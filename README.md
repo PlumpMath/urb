@@ -32,22 +32,15 @@ The work flow:
 
 		(define user "deulamco")
 		
-		(define (print line::string args::params-object[])
+		(define (print line args::params-object[])
 		    (Console.WriteLine line args))
 	
-		(define (test)
-		    (var i 0)
-		    (label Condition)
-		    (+= i 1)
-		    (print i)
-		    (if (and (< i 10) 
-		    	     (< -1 i) 
-		             (or true false))
-		        (jump Condition)
-			(print "end at {0}" i)))
+		(define (factorial acc n)
+                    (if (> n 1)
+                        (return (factorial (* acc n) (- n 1)))
+                        (return acc)))
 			
-		(test)
-		(print "Hello {0} !" user)
+		(printn "{0}" (factorial 1 10))
 
 for real working sample, look into \example. 
 It's already able to be compiled and use under Unity as component. 
