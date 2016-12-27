@@ -40,7 +40,7 @@ The work flow:
                         (return (factorial (* acc n) (- n 1)))
                         (return acc)))
 			
-		(printn "{0}" (factorial 1 10))
+		(print "{0}" (factorial 1 10))
 
 for real working sample, look into \example. 
 It's already able to be compiled and use under Unity as component. 
