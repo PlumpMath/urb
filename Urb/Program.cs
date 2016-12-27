@@ -37,10 +37,10 @@ namespace Urb
             //    ;; (compile @((require System)))
             //");
             var uLisp = new ULisp();
-            var source = File.ReadAllText("../../examples/simple.ul");
+            var source = File.ReadAllText("../../examples/Lisp.ul");
 
             // Compiling..
-            uLisp.Compile(source, "Simple", isDebugTransform: true);
+            uLisp.Compile(source, "Lisp", isDebugTransform: true);
 
             //uLisp.Compile(source, "demo.dll", false, true, true);
 

@@ -40,7 +40,7 @@ namespace Urb
                     _dict.Add(name, new Token(name, _type));
                     _parameterDict[name].exactType = _type;
                     _parameterDict[name].isVerified = true;
-                    Console.WriteLine("got {0} for {1}.\n", _type, name);
+                    Console.WriteLine("\ngot {0} for {1}.\n", _type, name);
                 }
                 counter++;
             }
@@ -59,6 +59,23 @@ namespace Urb
                     }
                 }
                 //throw new NotImplementedException();
+            }
+            /// Even after linking it still can't find !
+            if (_dict.Count < _parameterDict.Count)
+            {
+                foreach (var _parameter in _parameterDict)
+                {
+                    if (!_dict.ContainsKey(_parameter.Key))
+                    {
+                        _print("\nStill can't find any clues about this: {0}", _parameter);
+                        if(_parameter.Key == _functionName)
+                        {
+                            _print("\nAnd it's a function {0} => 'void'", _functionName);                       
+                            var _pair = new Token(_parameter.Key, "void");
+                            _dict.Add(_parameter.Key, _pair);
+                        }
+                    }
+                }
             }
             /// Flush.
             _parameterDict.Clear();
@@ -129,7 +146,7 @@ namespace Urb
         }
 
         private static HashList<string> _findPossibleParameterTypes
-        (string methodName, List<string> possibleClasses, object[] currentExpression, int position)
+        (string fullMethodName, List<string> possibleClasses, object[] currentExpression, int position)
         {
             var _typeCandidates = new HashList<string>();
 
@@ -140,15 +157,17 @@ namespace Urb
                 var _class = Type.GetType(_candidate);
                 var _methods = _class.GetMethods();
 
+                var _methodName = _splitMethodNameAndClass(fullMethodName)[0];
+
                 /// caching methods to find
                 foreach (var _method in _methods)
                 {
-                    if (_method.Name == methodName)
+                    if (_method.Name == _methodName)
                     {
                         var _parameters = _method.GetParameters();
                         if (_parameters.Length == currentExpression.Length - 1)
                         {
-                            Console.Write("\n  {0} : ", methodName);
+                            Console.Write("\n  {0} : ", fullMethodName);
                             foreach (var _parameter in _parameters)
                             {
                                 Console.Write("{0} ", _parameter.ParameterType.Name);
@@ -223,7 +242,7 @@ namespace Urb
             return _methodInfos;
         }
 
-        private static List<MethodInfo> _findMethodOverload(string functionInvoker, object[] parameters)
+        private static List<MethodInfo> _findMethodOverload(string functionInvoker, object[] parameters, string _functionName)
         {
             var _methodName = _splitMethodNameAndClass(functionInvoker)[0];
 
@@ -277,7 +296,7 @@ namespace Urb
                             /// BLock ///
                             else if (parameters[i] is Block)
                             {
-                                var name = _findBlockReturnType(parameters[i] as Block);
+                                var name = _findBlockReturnType(parameters[i] as Block, _functionName);
                                 if (name != null && name.type == "class")
                                 {
                                     /// Ok, here we come to where we expected: 
@@ -335,7 +354,7 @@ namespace Urb
                                 if (_tree[1] is Block)
                                 {
                                     /// continue searching for return type !
-                                    var _returnType = _findBlockReturnType(_tree[1] as Block);
+                                    var _returnType = _findBlockReturnType(_tree[1] as Block, _functionName);
                                     if (_returnType.type == "literal")
                                     {
                                         _parameterDict[signature].equalTypeNeighbour = _returnType.value;
@@ -347,13 +366,28 @@ namespace Urb
                                         /// Done ! We found it !
                                         return _parameterDict[signature].exactType;
                                     }
+                                    else if(_returnType.type == "recursive")
+                                    {
+                                        /// mean it's still unknown link here !
+                                        return null;
+                                        throw new NotImplementedException();
+                                    }
                                 }
                                 else if (_tree[1] is Token)
                                 {
-                                    /// ??? depend on it !
-                                    var _atom = _buildAtom(_tree[1] as Token);
+                                /// ??? depend on it !
+                                    var _token = _tree[1] as Token;
+                                    var _atom = _buildAtom(_token);
                                     if (_atom.type == "literal")
                                     {
+                                    if (_parameterDict.ContainsKey(_token.value))
+                                    {
+                                        if (_parameterDict[_token.value].isVerified)
+                                        {
+                                            _print("Found verified paramter type: {0}", _token.value);
+                                            return _parameterDict[_token.value].exactType;
+                                        }
+                                    }
                                         _parameterDict[signature].equalTypeNeighbour = (_tree[1] as Token).value;
                                     }
                                     else
@@ -433,7 +467,7 @@ namespace Urb
             //throw new NotImplementedException();
         }
 
-        private static Token _findBlockReturnType(Block block)
+        private static Token _findBlockReturnType(Block block, string _functionName)
         {
             var f = block.head;
             if (f is Token)
@@ -442,7 +476,7 @@ namespace Urb
                 if (fname.Contains("."))
                 {
                     /// .net interop: 
-                    var _methods = _findMethodOverload(fname, block.rest);
+                    var _methods = _findMethodOverload(fname, block.rest, _functionName);
                     if (_methods.Count > 1)
                     {
                         throw new NotImplementedException();
@@ -477,7 +511,7 @@ namespace Urb
                             }
                             else if (p is Block)
                             {
-                                var ret = _findBlockReturnType(p as Block);
+                                var ret = _findBlockReturnType(p as Block, _functionName);
                                 typeList.Add(ret.value);
                             }
                         }
@@ -507,7 +541,13 @@ namespace Urb
                     {
                         return new Token("class", _definedForms[fname].returnType);
                     }
-                    throw new NotImplementedException();
+
+                    else if(fname == _functionName)
+                    {
+                        /// Recursive function here ! ///
+                        _print("recursive function detected !");
+                        return new Token("recursive", null);
+                    }
                 }
             }
             throw new NotImplementedException();

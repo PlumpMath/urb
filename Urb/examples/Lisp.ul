@@ -18,8 +18,6 @@
 (attr :public :executable)
 (extends :Object)
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;                                        ;;;
 ;;; member will be public without static.  ;;;
@@ -41,10 +39,11 @@
 
 ;;; type inference: "void" when got no info or return.
 ;;; type inference: lookup cached references for type at position.
-(define (print line args::params-object[])
+
+(define (printn line args::params-object[])
  	(Console.WriteLine line args))
 
-;;; type inference: return type linking.        
+;;; type inference: return type linking. 
 (define (print line::string)
     (Console.WriteLine line)
 	(return false))
@@ -55,21 +54,16 @@
         (return (factorial (* acc n) (- n 1)))
         (return acc)))
 
-;;; unsolved: passing return type !
+;;; solved: passing return type !
 (define (py_text x::float y::float z::float)
 	(return 
-		(string.Format
+		(String.Format
             "Pytago: {0}" 
             (+ (* x x)
                (* y y)
                (* z z)))))
 
-;;; local function linking for type inference:
-;;; require function to be better inform.
-(define (pytago x::float y::float z::float)
-    (dict.Clear)
-    (print (py_text x y z)))
-        
+
 ;;; type-inference: void by no return/info.
 (define (test)
     (var i 0)
@@ -84,18 +78,22 @@
 
 
 ;;; type-inference: passing return type from .net method !
-(define (py_text x::float y::float z::float)
-	(return 
-		(String.Format
-            "Pytago: {0}" 
-            (+ (* x x)
-               (* y y)
-               (* z z)))))
-
 (define (pytago x::float y::float z::float)
     (print (py_text x y z)))
                
 (pytago 1f 2f 3f)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;                                            ;;;
+;;; local function/parameter linking problem:  ;;;
+;;; require function to be better inform.      ;;;
+;;;                                            ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (return_test line)
+    (return (print line)))
+
+(Console.WriteLine "{0}" (return_test "Hello during passing BOOL !"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;                                                                 ;;;
@@ -103,9 +101,9 @@
 ;;;                                                                 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(print "{0} {1} !" message "message")
-(print "{0}"(factorial 1 10))
+;;;(print "{0} {1} !" message "message")
+(printn "{0}" (factorial 1 10))
 (pytago 1.0f 2.0f 3.0f)
 (test)
-(print "{0}" true)
+(printn "{0}" true)
 (Console.ReadLine)

@@ -7,19 +7,3 @@
 (using System)
 (attr :public :executable)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;                                            ;;;
-;;; local function/parameter linking problem:  ;;;
-;;; require function to be better inform.      ;;;
-;;;                                            ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define (print line::string)
-    (Console.WriteLine line)
-	(return false))
-
-(define (return_test line)
-    (return (print line)))
-
-(Console.WriteLine "{0}" (return_test "Hello during passing BOOL !"))
-(Console.ReadLine)

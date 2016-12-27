@@ -513,7 +513,11 @@ namespace Urb
                 else return _buildMethod(args, null); // leave support later.
             }
         }
-        private static Dictionary<string, DefineForm> _definedForms = new Dictionary<string, DefineForm>();
+
+        ///TODO: Overloads.
+        private static Dictionary<string,DefineForm> _definedForms = 
+           new Dictionary<string,DefineForm>();        
+
         private class DefineForm : Expression
         {
             public bool isVariable = false;
@@ -569,7 +573,7 @@ namespace Urb
                 }
 
             }
-
+            
             public override string CompileToCSharp()
             {
                 if (isVariable)
