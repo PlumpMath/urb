@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Urb
 {
-    public abstract class Expression
+    public abstract class Expression:Exception
     {
         public ApplyCase abstractType = ApplyCase.Undefined;
         public object[] args;

@@ -47,7 +47,7 @@ public partial class ULisp {
 
         #region Eval Primitives
 
-        public abstract class Evaluation
+        public abstract class Evaluation:Exception
         {
             public object value;
             public Evaluation(object _value = null) { value = _value; }
@@ -114,6 +114,13 @@ public partial class ULisp {
             var expressions = TokenTree2Expressions(expansion);
             foreach (var function in expressions)
             {
+                /*******************************************
+                 * 
+                 * Use try/catch for parttern matching form.
+                 * 
+                 *******************************************/
+                //try { throw function; }
+                //catch (DefineForm d) { return ; }                   
                 _print(
                     function.Eval(environment).ToString());
             }

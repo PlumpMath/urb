@@ -50,6 +50,7 @@
     <Compile Include="Interpreter.cs" />
     <Compile Include="Lexer.cs" />
     <Compile Include="MacroExpander.cs" />
+    <Compile Include="PatternMatching.cs" />
     <Compile Include="Primitives.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
