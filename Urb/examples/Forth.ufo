@@ -4,73 +4,32 @@
 ;;													;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-@square (x) 
-    (x x *)
-!save
+== : is attractor operator, which attract all tokens in a block into it like a definition.
 
-12 square
+( :square dup mul )
 
-@factorial (acc n)
-	((n 1 >)
-		( n 1 - acc * n 1 - factorial )
-		(acc)
-	if)
-!save
+(12 square)
+===> 144
 
-;;;;;;;;;;;;;;;;;;;;;
-;;				   ;;
-;; @ - uneval mode ;;
-;; ! - eval mode   ;;
-;; ' - quote       ;;
-;; () - list data  ;;
-;;				   ;;
-;;;;;;;;;;;;;;;;;;;;;
+== [] is un-eval brace annotation.
+== << is assignment operator.
 
-( 12 13 )         ;; list data 
-(1 2 3) '+ reduce ;; reduce a list with an operator
+( :factorial 
+	n << acc << 
+	[n 1 >] [acc n * n 1 - factorial]
+			[acc] if ) 
 
-(System System.IO) 'using map
+(2 square factorial)
+===> 24
 
-Urb namespace
+(System System.IO [ using ] map)
 
-MainClass (partial static public) class 
+(:sum [ + ] reduce )
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                        ;;
-;; [] is to force argument to function,   ;;
-;; by adding new stack to next function.  ;;
-;;                                        ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(:overload-enforce::string::void 
+	"Enforced" Console.WriteLine)
 
-MainClass.listStack member
-
-@ sum (a b c) ((a b c) '+ reduce) !save
-
-@ overload_enforce () 
-    [ "Enforced console.writeline" Console.WriteLine ] 
-!save
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;                                      ;;
-;; expressive primitive types:          ;;
-;; int, float, string, symbol, literal. ;;
-;;                                      ;;
-;; reference types = class instances.   ;;
-;;                                      ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-@ static_method_2 () (
-    [ 1 2 3 "{1} {2} {3}" Console.WriteLine ]
-) !def
-
-;; label things to shorten code.
-@ set_position (x y z)
-    [transform.position :p label]
-        p.x x + 
-        p.y y +
-        p.z z +
-        Vector3 new p =
-    p end
-!save
-
-;; end command to check ending of each name as segment key.
-MainClass end
+(:set-position 
+	z << y << x << 
+	[transform.position] p label 
+	p.x x + p.y y + p.z z + Vector3 new p <<) 

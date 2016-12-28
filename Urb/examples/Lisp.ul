@@ -27,7 +27,6 @@
 (member :warning "Only work with instance !")
 
 
-
 ============================================
 ==                                        ==
 == define is naturally public and static. ==
@@ -37,18 +36,13 @@
 (define :message "Hello")
 (define :dict (new Dictionary<String,String>)) 
 
-== type inference: "void" when got no info or return.
-== type inference: lookup cached references for type at position.
-
 (define (printn line args::params-object[])
  	(Console.WriteLine line args))
 
-== type inference: return type linking. 
 (define (print line::string)
     (Console.WriteLine line)
 	(return false))
 
-== type inference: based on neighbour in Mapping case.
 (define (factorial acc n)
     (if (> n 1)
         (return (factorial (* acc n) (- n 1)))
@@ -63,7 +57,6 @@
                (* y y)
                (* z z)))))
 
-
 == type-inference: void by no return/info.
 (define (test)
     (var i 0)
@@ -77,7 +70,6 @@
     (Console.WriteLine "Good bye {0} !" result))
 
 
-== type-inference: passing return type from .net method !
 (define (pytago x::float y::float z::float)
     (print (py_text x y z)))
                

@@ -7,3 +7,45 @@
 (using System)
 (attr :public :executable)
 
+(define (print line args::params-object[])
+	(Console.WriteLine line args))
+
+==========================
+==                      ==
+== List decomposition   ==
+==                      ==
+==========================
+(define (match_list)
+	(match
+		a::b::rest (print "3 args")
+		a::rest    (print "2 args")
+		_          (print "1 arg")))
+
+
+==========================
+==                      ==
+== string decomposition ==
+==                      ==
+==========================
+(define (match_string)
+	(match
+		"ab"::"cd"::"ef"    (print "abcdef")
+		"def"-fn::" "::body (print "{0} {1}" fn body)
+		_-message		    (print message)))
+
+
+==========================
+==                      ==
+==  data decomposition  ==
+==                      ==
+==========================
+(define (match_data_type)
+	(match
+		[]         		 	  (print "List")
+		Atom::[]   			  (print "List with 1 Atom")
+		Atom-A::Block-B::rest (print "{0} and block {1}" A B))
+		_-data				  (print "unknown: {0}" data))  
+
+
+==http://tomasp.net/blog/2015/csharp-pattern-matching/
+==http://stackoverflow.com/questions/6031555/implementing-pattern-matching-in-c-sharp
