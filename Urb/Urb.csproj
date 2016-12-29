@@ -59,30 +59,31 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ApplyCase.cs" />
-    <Compile Include="Block.cs" />
-    <Compile Include="Compiler.cs" />
-    <Compile Include="Expression.cs" />
-    <Compile Include="HashList.cs" />
-    <Compile Include="Helper.cs" />
-    <Compile Include="Interpreter.cs" />
-    <Compile Include="Lexer.cs" />
-    <Compile Include="MacroExpander.cs" />
-    <Compile Include="PatternMatching.cs" />
-    <Compile Include="Primitives.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Reader.cs" />
-    <Compile Include="SyntaxTable.cs" />
-    <Compile Include="Token2Expression.cs" />
-    <Compile Include="TokenTransformation.cs" />
-    <Compile Include="TypeInference.cs" />
     <Compile Include="other_prototypes\Uruby.cs" />
-    <Compile Include="Token.cs" />
-    <Compile Include="Init.cs" />
-    <Compile Include="Atom.cs" />
     <Compile Include="other_prototypes\UForth.cs" />
     <Compile Include="other_prototypes\Bailey.cs" />
+    <Compile Include="ULisp\ApplyCase.cs" />
+    <Compile Include="ULisp\Atom.cs" />
+    <Compile Include="ULisp\Block.cs" />
+    <Compile Include="ULisp\Compiler.cs" />
+    <Compile Include="ULisp\Expression.cs" />
+    <Compile Include="ULisp\HashList.cs" />
+    <Compile Include="ULisp\Helper.cs" />
+    <Compile Include="ULisp\Init.cs" />
+    <Compile Include="ULisp\Interpreter.cs" />
+    <Compile Include="ULisp\Lexer.cs" />
+    <Compile Include="ULisp\MacroExpander.cs" />
+    <Compile Include="ULisp\PatternMatching.cs" />
+    <Compile Include="ULisp\Primitives.cs" />
+    <Compile Include="ULisp\Reader.cs" />
+    <Compile Include="ULisp\SyntaxTable.cs" />
+    <Compile Include="ULisp\Token.cs" />
+    <Compile Include="ULisp\Token2Expression.cs" />
+    <Compile Include="ULisp\TokenTransformation.cs" />
+    <Compile Include="ULisp\TypeInference.cs" />
+    <Compile Include="GD.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="examples\bailey.b" />
@@ -94,6 +95,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="lib\" />
+    <Folder Include="ULisp\" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5">
