@@ -19,8 +19,6 @@
 (:listB a b c) => var listB = List<Symbol>(){a, b, c};
 
 
-
-
 == because bailey aim for freedom so no special order or tabs are required.
 (:square | 0 -> 0 | 1 -> 1 | n -> n n * )
 

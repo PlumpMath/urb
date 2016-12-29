@@ -10,6 +10,13 @@
 (define (print line args::params-object[])
 	(Console.WriteLine line args))
 
+(define (factorial n)
+	(match
+		0 (return 0)
+		1 (return 1)
+		_ (return (* n (factorial (- n 1))))))
+
+
 ==========================
 ==                      ==
 == List decomposition   ==
