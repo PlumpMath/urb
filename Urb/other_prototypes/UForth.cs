@@ -32,22 +32,18 @@ namespace Forth
             @"(?<newline>\n\t|\n|\r|\r\n)|" +
             // \t
             @"(?<tab>\t)|" +
-            // un-eval mode
-            @"(?<uneval_mode>\@)|" +
-            // eval mode
-            @"(?<eval_mode>\!)|" +
             // quote
-            @"(?<quote>\')|" +
+            @"(?<quote>\@)|" +
+            // unquote
+            @"(?<unquote>\!)|" +
             // forward
             @"(?<forward>\-\>)|" +
-            // backward
-            @"(?<backward>\<\-)|" +
             // comma, () and []
             @"(?<separator>,|\(|\)|\[|\])|" +
             // string " "
-            @"(?<string>\"".*\"")|" +
+            @"(?<String>\"".*?\"")|" +
             // pair of a:b
-            @"(?<pair>[a-zA-Z0-9\\_\<\>$_]+:[a-zA-Z0-9,\\_\<\>\[\]$_]+)|" +
+            @"(?<pair>[a-zA-Z0-9,\\_\<\>\[\]\-$_]+::[a-zA-Z0-9,\\_\<\>\[\]\-$_]+)|" +
 
             // @instant_variable
             @"(?<instance_variable>\@[a-zA-Z0-9$_]+)|" +
@@ -56,19 +52,21 @@ namespace Forth
 
             // float 1f 2.0f
             @"(?<float>[-+]?[0-9]*\.?[0-9]+f)|" +
-            // double 1.0 2.0
-            @"(?<double>[-+]?[0-9]*\.[0-9]+)|" +
+            // double 1d 2.0d
+            @"(?<Double>[-+]?[0-9]*\.?[0-9]+d)|" +
             // integer 120
-            @"(?<integer>[+-]?[0-9]+)|" +
+            @"(?<Int32>[+-]?[0-9]+)|" +
+            // true|false
+            @"(?<bool>true|false)|" +
 
-            // boolean
-            @"(?<boolean_compare>[\>|\<|\=|\>=|\<=])|" +
-            @"(?<boolean_condition>[\|\||\&\&])|" +
             // operators
-            @"(?<operator>\+=|\-=|\+|\-|\*|\/|\^)|" +
+            @"(?<operator>\+\=|\-\=|\>\>|\+|\-|\*|\/|\^)|" +
+            // boolean
+            @"(?<boolean_compare>\>|\<|\=\?|\>=|\<=)|" +
+            @"(?<boolean_condition>\|\||\&\&)|" +
 
             // #Comments
-            @"(?<comment>;;;.*\n)|" +
+            @"(?<comment>\=\=.*\n)|" +
 
             // :Symbol
             @"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
@@ -76,7 +74,7 @@ namespace Forth
             @"(?<label>[a-zA-Z0-9$_]+\:)|" +
             // Literal   [a-zA-Z0-9\\_\<\>\[\]\-$_.]
             // without [] in its literal rule.
-            @"(?<literal>[a-zA-Z0-9\\_\<\>\-\?$_.]+)|" +
+            @"(?<literal>[a-zA-Z0-9\\_\<\>\[\],\-$_.]+)|" +
 
             // the rest.
             @"(?<invalid>[^\s]+)";

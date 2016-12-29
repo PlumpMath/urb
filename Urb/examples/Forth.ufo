@@ -5,31 +5,36 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 == : is attractor operator, which attract all tokens in a block into it like a definition.
-
-( :square dup mul )
-
-(12 square)
-===> 144
-
 == [] is un-eval brace annotation.
 == << is assignment operator.
+                     
+== functional pattern matching featured.
+== |  guard for case matching.
+== -> annotation for next act if case matched.
 
-( :factorial 
-	n << acc << 
-	[n 1 >] [acc n * n 1 - factorial]
-			[acc] if ) 
+(:square 
+    | 0 -> 0
+    | 1 -> 1
+    | n -> n n * )
 
-(2 square factorial)
-===> 24
+(:factorial 
+    | 0 -> 0
+    | 1 -> 1 
+    | n -> n n 1 - factorial * )
+
+(2 square factorial) ===> 24
 
 (System System.IO [ using ] map)
 
 (:sum [ + ] reduce )
 
-(:overload-enforce::string::void 
-	"Enforced" Console.WriteLine)
-
+(:print 
+	| [object[] as arg] [String as str] -> arg str Console.WriteLine 
+    | [str as String]                   ->     str Console.WriteLine )
+    
 (:set-position 
-	z << y << x << 
-	[transform.position] p label 
-	p.x x + p.y y + p.z z + Vector3 new p <<) 
+    | 0f 0f 0f -> ignore
+    | x  y  z  -> [transform.position] p label 
+	                p.x x + p.y y + p.z z + Vector3 new p << )
+                     
+ 
