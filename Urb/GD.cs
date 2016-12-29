@@ -74,6 +74,13 @@ namespace Urb
 
         #region Line Helper
 
+        public static string nTimes(string ch, int time)
+        {
+            var acc = "";
+            for (int i = 1; i < time; i++) acc += ch;
+            return acc;
+        }
+
         private static void _print(string line)
         {
             _print(line + "\n", new object[] { });
@@ -268,14 +275,6 @@ namespace Urb
         {
             switch (token.type)
             {
-                case "eval_mode":
-                    RestoreCompilerState(true);
-                    break;
-
-                case "uneval_mode":
-                    ChangeCompilerState(CompilerMode.Sleep);
-                    break;
-
                 case "separator":
                     /// () []
                     switch (token.value)
@@ -296,8 +295,8 @@ namespace Urb
                     }
                     break;
 
-                case "backward": break;
-                case "forward": break;
+                //case "backward": break;
+                //case "forward": break;
 
                 case "boolean_compare":
                 case "operator":

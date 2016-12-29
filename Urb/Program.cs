@@ -21,12 +21,27 @@ namespace Urb
             // Test Source:
             else
             {
-                //UforthRepl();
-                ULispTest();
+                GDTest();
                 // wait for prompt.
                 Console.ReadLine();
             }
         }
+
+        private static void GDTest()
+        {
+            var gd = new GD();
+            while (true)
+            {
+                Console.ForegroundColor = ConsoleColor.Black;
+                Console.Write("> ");
+                var input = Console.ReadLine();
+                gd.Repl(input);
+
+                Console.WriteLine();
+                Console.WriteLine(GD.nTimes("_", 80));
+            }
+        }
+
         private static void ULispTest()
 
         {
@@ -48,7 +63,7 @@ namespace Urb
             //ULisp.ReplSession();
 
             ULisp.Test();
-            
+
         }
 
         private static void BaileyTest()
