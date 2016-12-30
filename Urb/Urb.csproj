@@ -83,7 +83,7 @@
     <Compile Include="ULisp\Token2Expression.cs" />
     <Compile Include="ULisp\TokenTransformation.cs" />
     <Compile Include="ULisp\TypeInference.cs" />
-    <Compile Include="GD.cs" />
+    <Compile Include="other_prototypes\GD.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="examples\bailey.b" />
@@ -95,7 +95,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="lib\" />
-    <Folder Include="ULisp\" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5">
