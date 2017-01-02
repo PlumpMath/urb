@@ -32,7 +32,6 @@ namespace Urb
             var gd = new Bailey();
             while (true)
             {
-                Console.ForegroundColor = ConsoleColor.Black;
                 Console.Write("> ");
                 var input = Console.ReadLine();
                 gd.Repl(input);

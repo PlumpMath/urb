@@ -24,24 +24,23 @@ namespace Urb
             @"(?<newline>\n\t|\n|\r|\r\n)|" +
             // \t
             @"(?<tab>\t)|" +
-            // quote
-            @"(?<quote>\@)|" +
-            // unquote
-            @"(?<unquote>\!)|" +
+            // compose head::tail
+            @"(?<composer>\:\:)|" +
+            // attractor
+            @"(?<attractor>\:)|" +
+            // arrow
+            @"(?<arrow>\-\>)|" +
             // forward
-            @"(?<forward>\-\>)|" +
+            @"(?<forward>\>\>)|" +
+            // backward
+            @"(?<backward>\<\<)|" +
+            // empty list
+            @"(?<empty>\[\])|" +
             // comma, () and []
             @"(?<separator>,|\(|\)|\[|\])|" +
             // string " "
             @"(?<String>\"".*?\"")|" +
-            // pair of a:b
-            @"(?<pair>[a-zA-Z0-9,\\_\<\>\[\]\-$_]+::[a-zA-Z0-9,\\_\<\>\[\]\-$_]+)|" +
-
-            // @instant_variable
-            @"(?<instance_variable>\@[a-zA-Z0-9$_]+)|" +
-            // $global_variable
-            @"(?<global_variable>\$[a-zA-Z0-9$_]+)|" +
-
+            
             // float 1f 2.0f
             @"(?<float>[-+]?[0-9]*\.?[0-9]+f)|" +
             // double 1d 2.0d
@@ -52,7 +51,8 @@ namespace Urb
             @"(?<bool>true|false)|" +
 
             // operators
-            @"(?<operator>\+\=|\-\=|\>\>|\+|\-|\*|\/|\^)|" +
+            @"(?<operator>\+\=|\-\=|\+|\-|\*|\/|\^)|" +
+
             // boolean
             @"(?<boolean_compare>\>|\<|\=\?|\>=|\<=)|" +
             @"(?<boolean_condition>\|\||\&\&)|" +
@@ -60,13 +60,8 @@ namespace Urb
             // #Comments
             @"(?<comment>\=\=.*\n)|" +
 
-            // :Symbol
-            @"(?<symbol>:[a-zA-Z0-9$_.]+)|" +
-            // Label:
-            @"(?<label>[a-zA-Z0-9$_]+\:)|" +
             // Literal   [a-zA-Z0-9\\_\<\>\[\]\-$_.]
-            // without [] in its literal rule.
-            @"(?<literal>[a-zA-Z0-9\\_\<\>\[\],\-$_.]+)|" +
+            @"(?<literal>[a-zA-Z0-9\\_\<\>\/\[\],\-$_.]+)|" +
 
             // the rest.
             @"(?<invalid>[^\s]+)";
@@ -275,8 +270,8 @@ namespace Urb
         {
             switch (token.type)
             {
+                #region () []
                 case "separator":
-                    /// () []
                     switch (token.value)
                     {
                         case "(":
@@ -294,13 +289,17 @@ namespace Urb
                             break;
                     }
                     break;
+                #endregion
 
-                //case "backward": break;
-                //case "forward": break;
+                case "attractor":
 
+                case "backward":
+                case "forward":
+                case "arrow":
+                    
                 case "boolean_compare":
                 case "operator":
-                case "literal": break;
+                case "literal":// break;
 
                 default:
                     evaluationStack.Push(BuildValueType(token));
