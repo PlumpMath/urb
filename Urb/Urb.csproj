@@ -87,10 +87,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="examples\bailey.b" />
+    <None Include="examples\concept.b" />
     <None Include="examples\LispHigh.ul" />
     <None Include="examples\Ruby.rb" />
     <None Include="examples\Lisp.ul" />
-    <None Include="examples\Forth.ufo" />
     <None Include="examples\simple.ul" />
   </ItemGroup>
   <ItemGroup>

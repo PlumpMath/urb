@@ -23,12 +23,18 @@
 
 == simple function with type specific.
 (:square/int->int dup *) 
+===> __________________________________
 ===> int square (int a) {return a * a;}
 
 
 == bailey aim for freedom so no special order is required.
 (:square | 0 -> 0 | 1 -> 1 | n -> n n * )
-===> int square (int n) {if(n == 0) return 0; else if(n == 1) return 1; else return n * n;}
+===> _____________________________________
+===> int square (int n) {
+===>    if(n == 0) return 0; 
+===>    else if(n == 1) return 1; 
+===>   else return n * n;
+===> }
 
 
 == or pretty in order a bit.
@@ -36,16 +42,23 @@
     | 0 -> 0
     | 1 -> 1 
     | n -> n n 1 - factorial * )
-===> int factorial (int n) { if(n == 0) return 0; else if(n == 1) return 1; else return n * factorial (n - 1); }
+===> _____________________________________
+===> int factorial (int n) { 
+===>    if(n == 0) return 0; 
+===>    else if(n == 1) return 1; 
+===>    else return n * factorial (n - 1); 
+===> }
 
 
 == forced into a code block help reduce overloads matching complexity.
 (2 square factorial) ===> 24 
+==> ________________________
 ===> factorial (square (4));
 
 
 == mapping function as 1st class.
 (System System.IO [ using ] map)
+==> ____________________________
 ===> using System;
 ===> using System.IO;
 
@@ -58,6 +71,7 @@
 (:list-split
 	| []         ->                          "empty" print 
 	| head::tail -> head tail "head {0} :: tail {1}" print )
+==> ________________________________________________________
 ===> void list_split(List<object> arg0){ 
 ===>     if(arg0.Count == 0) print "empty"; 
 ===>     else { 
@@ -71,9 +85,10 @@
 
 == strong typed depend on type inference.
 == different types in pattern matching will be divided into overloads.
-(:print 
-    | object[]/arg String/str -> arg str Console.WriteLine 
-    | String/str              ->     str Console.WriteLine )
+(:print  
+    | String/str              ->     str Console.WriteLine
+    | String/str object[]/arg -> str arg Console.WriteLine )
+==> ________________________________________________________
 ===> void print (String str, object[] arg) {
 ===>     Console.WriteLine (str, arg);
 ===> }
@@ -88,6 +103,7 @@
     | 0f 0f 0f -> ignore
     | x  y  z  -> [transform.position] p label 
                   p.x x + p.y y + p.z z + Vector3 new p << )
+==> ________________________________________________________
 ===> void set_position (float x, float y, float z){
 ===>     if(x == y == z == 0) return;
 ===>     else {
