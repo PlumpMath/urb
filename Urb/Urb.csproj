@@ -61,37 +61,34 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="other_prototypes\Uruby.cs" />
-    <Compile Include="other_prototypes\UForth.cs" />
-    <Compile Include="other_prototypes\Bailey.cs" />
-    <Compile Include="ULisp\ApplyCase.cs" />
-    <Compile Include="ULisp\Atom.cs" />
-    <Compile Include="ULisp\Block.cs" />
-    <Compile Include="ULisp\Compiler.cs" />
-    <Compile Include="ULisp\Expression.cs" />
-    <Compile Include="ULisp\HashList.cs" />
-    <Compile Include="ULisp\Helper.cs" />
-    <Compile Include="ULisp\Init.cs" />
-    <Compile Include="ULisp\Interpreter.cs" />
-    <Compile Include="ULisp\Lexer.cs" />
-    <Compile Include="ULisp\MacroExpander.cs" />
-    <Compile Include="ULisp\PatternMatching.cs" />
-    <Compile Include="ULisp\Primitives.cs" />
-    <Compile Include="ULisp\Reader.cs" />
-    <Compile Include="ULisp\SyntaxTable.cs" />
-    <Compile Include="ULisp\Token.cs" />
-    <Compile Include="ULisp\Token2Expression.cs" />
-    <Compile Include="ULisp\TokenTransformation.cs" />
-    <Compile Include="ULisp\TypeInference.cs" />
-    <Compile Include="other_prototypes\GD.cs" />
+    <Compile Include="prototypes\Uruby.cs" />
+    <Compile Include="prototypes\UForth.cs" />
+    <Compile Include="ulisp\ApplyCase.cs" />
+    <Compile Include="ulisp\Atom.cs" />
+    <Compile Include="ulisp\Block.cs" />
+    <Compile Include="ulisp\Compiler.cs" />
+    <Compile Include="ulisp\Expression.cs" />
+    <Compile Include="ulisp\HashList.cs" />
+    <Compile Include="ulisp\Helper.cs" />
+    <Compile Include="ulisp\Init.cs" />
+    <Compile Include="ulisp\Interpreter.cs" />
+    <Compile Include="ulisp\Lexer.cs" />
+    <Compile Include="ulisp\MacroExpander.cs" />
+    <Compile Include="ulisp\PatternMatching.cs" />
+    <Compile Include="ulisp\Primitives.cs" />
+    <Compile Include="ulisp\Reader.cs" />
+    <Compile Include="ulisp\SyntaxTable.cs" />
+    <Compile Include="ulisp\Token.cs" />
+    <Compile Include="ulisp\Token2Expression.cs" />
+    <Compile Include="ulisp\TokenTransformation.cs" />
+    <Compile Include="ulisp\TypeInference.cs" />
+    <Compile Include="prototypes\Bailey.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="examples\bailey.b" />
     <None Include="examples\concept.b" />
-    <None Include="examples\LispHigh.ul" />
-    <None Include="examples\Ruby.rb" />
-    <None Include="examples\Lisp.ul" />
-    <None Include="examples\simple.ul" />
+    <None Include="examples\lisp_macros.ul" />
+    <None Include="examples\ruby.rb" />
+    <None Include="examples\lisp.ul" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="lib\" />

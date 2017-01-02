@@ -13,7 +13,7 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace Urb
 {
-    public class GD
+    public class Bailey
     {
         #region Syntax Table
         /********************

@@ -21,15 +21,15 @@ namespace Urb
             // Test Source:
             else
             {
-                GDTest();
+                BaileyTest();
                 // wait for prompt.
                 Console.ReadLine();
             }
         }
 
-        private static void GDTest()
+        private static void BaileyTest()
         {
-            var gd = new GD();
+            var gd = new Bailey();
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.Black;
@@ -38,7 +38,7 @@ namespace Urb
                 gd.Repl(input);
 
                 Console.WriteLine();
-                Console.WriteLine(GD.nTimes("_", 80));
+                Console.WriteLine(Bailey.nTimes("_", 80));
             }
         }
 
@@ -65,28 +65,7 @@ namespace Urb
             ULisp.Test();
 
         }
-
-        private static void BaileyTest()
-        {
-            var bailey = new Bailey();
-            bailey.Reader(@"
-                    fun factorial
-                    arg acc n
-                    psh n   1
-                    jge :cont
-                    psh acc
-                    ret
-
-                    blo :cont
-                    psh acc n
-                    mul
-                    psh n 1
-                    sub
-                    rec
-                    end
-");
-        }
-
+        
         private static void UforthRepl()
         {
             var ufo = new UForth();
