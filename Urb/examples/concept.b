@@ -5,7 +5,7 @@
 =======================================================
 
 == : is attractor operator, which attract all tokens in a block into it like a definition.
-== [] is un-eval brace annotation.
+== [] is un-eval brace annotation and became a List of type.
 == << is assignment operator.
 == functional pattern matching feature by default.
 == |  guard for case matching.
