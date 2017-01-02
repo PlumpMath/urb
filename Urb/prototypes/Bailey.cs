@@ -60,8 +60,8 @@ namespace Urb
             // #Comments
             @"(?<comment>\=\=.*\n)|" +
 
-            // Literal   [a-zA-Z0-9\\_\<\>\[\]\-$_.]
-            @"(?<literal>[a-zA-Z0-9\\_\<\>\/\[\],\-$_.]+)|" +
+            // symbol   [a-zA-Z0-9\\_\<\>\[\]\-$_.]
+            @"(?<symbol>[a-zA-Z0-9\\_\<\>\/\[\],\-$_.]+)|" +
 
             // the rest.
             @"(?<invalid>[^\s]+)";
@@ -78,10 +78,10 @@ namespace Urb
 
         private static void _print(string line)
         {
-            _print(line + "\n", new object[] { });
+            print(line + "\n", new object[] { });
         }
 
-        private static void _print(string line, params object[] args)
+        private static void print(string line, params object[] args)
         {
             var backup = Console.ForegroundColor;
             Console.ForegroundColor = ConsoleColor.Green;
@@ -168,21 +168,32 @@ namespace Urb
 
         #region Typing
 
-        public object BuildValueType(Token token)
+        public class Integer : Exception { public int value { get; set; } }
+        public class Double : Exception { public double value { get; set; } }
+        public class Float : Exception { public float value { get; set; } }
+        public class Boolean : Exception { public bool value { get; set; } }
+        public class BString : Exception { public string value { get; set; } }
+        public class Symbol : Exception { public string name { get; set; } }
+
+        public Exception BuildValueType(Token token)
         {
+            var value = token.value;
             switch (token.type)
             {
-                case "string": return token.value;
-                case "integer": return Int32.Parse(token.value);
-                case "double": return double.Parse(token.value);
-                case "float":
-                    return float.Parse(
-              token.value.ToString().Substring(0,
-              token.value.ToString().Length - 1));
-                case "symbol":
-                    return new Atom(token.type,
-                                    token.value.Substring(1, token.value.Length - 1));
-                default: return new Atom(token.type, token.value);
+                case "integer": return new Integer() { value = Int32.Parse(value) };
+                case "double": return new Double() {
+                    value = double.Parse(value.Substring(0, value.Length - 1))
+                };
+                case "float": return new Float() {
+                    value = float.Parse(value.Substring(0, value.Length - 1))
+                };
+                case "bool": return new Boolean() { value = value == "true" };
+                case "string": return new BString() { value = value };
+                case "symbol": return new Symbol() { name = value }; 
+                default:
+                    print("can't find so -> symbol {0}\n", token.type);
+                    return new Symbol() { name = value };
+                    //throw new NotImplementedException(token.type);
             }
         }
 
@@ -202,6 +213,21 @@ namespace Urb
 
         #endregion
 
+        #region Formatter
+
+        public string Value2String(Exception e)
+        {
+            try { throw e; }
+            catch (Integer n) {return string.Format("{0}", n.value); }
+            catch (Float n) { return string.Format("{0}f", n.value); }
+            catch (Double n) { return string.Format("{0}d", n.value); }
+            catch (BString n) { return string.Format("{0}", n.value); }
+            catch (Boolean n) { return string.Format("{0}", n.value); }
+            catch (Symbol n) { return string.Format("{0}", n.name); }
+        }
+
+        #endregion
+
         public void Repl(string source)
         {
             var tokens = Reader(source);
@@ -213,8 +239,7 @@ namespace Urb
 
             PrintStack();
         }
-
-
+                
         public void NewStackFrame()
         {
             /// create new stack frame.
@@ -266,6 +291,12 @@ namespace Urb
             }
         }
 
+        public enum PreFixAnnotation
+        {
+            Create,
+            PatternGuard
+        }
+
         private void EatToken(Token token, Dictionary<string, object> env)
         {
             switch (token.type)
@@ -292,6 +323,8 @@ namespace Urb
                 #endregion
 
                 case "attractor":
+                    /// 1. Get next literal as signature.
+                    /// 2. Assign name for this whole block.
 
                 case "backward":
                 case "forward":
@@ -302,17 +335,23 @@ namespace Urb
                 case "literal":// break;
 
                 default:
-                    evaluationStack.Push(BuildValueType(token));
+                    print("stack << {0}:'{1}'\n", token.type, token.value);
+                    var value = BuildValueType(token);
+                    evaluationStack.Push(value);
                     break;
             }
         }
-
+        
         public void PrintStack()
         {
             Console.Write("[ ");
             foreach (var e in evaluationStack)
             {
-                Console.Write("{0} ", e);
+                string acc = String.Empty;
+                if (e.GetType().IsSubclassOf(typeof(Exception)))
+                    acc = Value2String(e as Exception);
+                else acc = e.ToString();
+                Console.Write("{0} ", acc);
             }
             Console.Write(" ]");
         }
