@@ -15,42 +15,157 @@ namespace Urb
 {
     public class Bailey
     {
-        public enum PreFixAnnotation
+        public enum Annotation
         {
             None,
-            Create,
-            PatternGuard
+            InitCreation,
+            DoneCreation,
+            InitGuard,
+            NextGuard
         }                                              
-        private PreFixAnnotation _currentAnnotation = PreFixAnnotation.None;
+        private Annotation annotation = Annotation.None; 
+
+        #region Evaluation
+
+        private void Evaluate(List expression, Dictionary<string, Word> dict)
+        {
+            foreach (var e in expression.cells)
+            {
+                Evaluate(e, expression, dict);
+                if (annotation == Annotation.DoneCreation) break;
+            }                                    
+        }
+
+        private void Evaluate(Exception e, List body, Dictionary<string, Word> dict)
+        {
+            try { throw e; }
+            catch (Attractor a) { annotation = Annotation.InitCreation; }
+            catch (Symbol s) {
+                /// 1. check annotation: None ? Create ? Guard ?      
+                /// 3. wonder if it's create mode ? => analyze signature.
+                /// 3. wonder if dict got s ? => fetch value.
+                /// 4. else just return it to stack.
+                switch (annotation)
+                {
+                    case Annotation.None:
+                        if (dict.ContainsKey(s.name))
+                        {
+                            /// Eval it !
+                            Evaluate(dict[s.name], body, dict);
+                        }
+                        else
+                        {
+                            /// Consider it as undefined.
+                            warning("undefined symbol: {0}.\n", s.name);
+                        }
+                        break;
+
+                    case Annotation.InitCreation:
+                        /// Analyze symbol:
+                        var signature = s.name;
+                        if (signature.Contains("/"))
+                        {
+                            /// mean it got type info.          
+                            throw new NotImplementedException();
+                        }             
+                        else
+                        {
+                            /// just normal.
+                            var word = new Word() { customBody = new List(body.cells) };
+                            word.customBody.cells.Remove(s);
+                            dict.Add(signature, word);
+                            evaluationStack.Push(word);
+                            annotation = Annotation.DoneCreation;
+                        }
+                        break;
+
+                    case Annotation.InitGuard:
+                        throw new NotImplementedException();
+                        break;
+                }
+            }
+            catch (Add op) {  }
+            catch (Div op) {  }
+            catch (Mul op) {  }
+            catch (Sub op) {  }
+
+            catch (Integer i) { evaluationStack.Push(i); }
+            catch (Double i) { evaluationStack.Push(i); }
+            catch (Float i) { evaluationStack.Push(i); }
+
+            catch (BString i) { evaluationStack.Push(i); }
 
 
+
+            catch (Boolean i) { evaluationStack.Push(i); }
+        }
+
+        #endregion
+
+        #region Primitives 
+
+        public static void Dup(Stack<Exception> e, Dictionary<string,Exception> dict)
+        {
+            e.Push(e.Peek());
+        }
+
+        #endregion
+
+        #region Word
+
+        public class Word : Exception
+        {
+            public bool isPrimitive = false;
+            public List customBody { get; set; }
+            public Action<Stack<Exception>, Dictionary<string, Exception>> primitiveBody;
+
+            public override string ToString()
+            {
+                return string.Format("word@{0}", base.GetHashCode().ToString()) ;
+            }
+        }
+
+        #endregion
 
         #region Build Expression
 
-        private void BuildExpression(List<Token> tokens)
+        private Stack<Exception> BuildExpression(List<Token> tokens)
         {
-            foreach(var token in tokens)
-            switch (token.type)
-            {
-                #region () []
-                case "separator":
-                    switch (token.value)
-                    {
-                        case "(": NewStackFrame(); break;
-                        case ")": CloseStackFrameToList(); break;
-                        default: evaluationStack.Push(InsertPrimitive(token)); break;
-                    }
-                    break;
-                #endregion
-                
-                default:
-                    var value = InsertPrimitive(token);
-                    evaluationStack.Push(value);
-                    print("stack << {0}:'{1}'\n", value.GetType().Name, Formatter(value));
-                    break;
-            }
+            foreach (var token in tokens)
+                switch (token.type)
+                {
+                    #region () []
+                    case "separator":
+                        switch (token.value)
+                        {
+                            case "(": NewStackFrame(); break;
+                            case ")": CloseStackFrameToList(); break;
+                            default: evaluationStack.Push(InsertPrimitive(token)); break;
+                        }
+                        break;
+                    #endregion
+
+                    default:
+                        var value = InsertPrimitive(token);
+                        evaluationStack.Push(value);
+                        print("stack < {0}:'{1}'\n", value.GetType().Name, Formatter(value));
+                        break;
+                }
             /// Validate expression:
             if (_open != _close) throw new Exception("'(' open not equal to close ')' !");
+            else
+            {
+                var built = new Stack<Exception>();
+                var total = _open + 1;
+                note("built total {0} expression{1}.\n", _open+1, _open > 1 ? "s" : "");
+                _open = _close = 0; /// Clear state.
+                while(total > 0)
+                {
+                    built.Push(evaluationStack.Pop());
+                    total--;
+                }
+                return built;
+            }
         }
         
         #endregion
@@ -190,6 +305,8 @@ namespace Urb
             catch (Arrow a) { return "->"; }
             catch (Backward b) { return " <<"; }
 
+            catch (Word w) { return w.ToString(); }
+
             /// Operations                                               
             catch (Add n) { return "+"; }
             catch (Sub n) { return "-"; }
@@ -267,8 +384,12 @@ namespace Urb
         {
             var tokens = Reader(source);
 
-            BuildExpression(tokens);
-                       
+            var built = BuildExpression(tokens);
+
+            foreach (List expression in built)
+            {
+                Evaluate(expression, definedWords);   
+            }
             PrintStack();
         }
 
@@ -298,22 +419,25 @@ namespace Urb
         {
             print(line + "\n", new object[] { });
         }
-
+        private static ConsoleColor _consoleColor = ConsoleColor.Green;
         private static void print(string line, params object[] args)
         {
             var backup = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Green;
+            Console.ForegroundColor = _consoleColor;
             Console.Write(line, args);
             Console.ForegroundColor = backup;
         }
-
         private static void note(string line, params object[] args)
         {
-            var backup = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.DarkGreen;
-            Console.Write(line, args);
-            Console.ForegroundColor = backup;
+            _consoleColor = ConsoleColor.Green;
+            print(line, args);
         }
+        private static void warning(string line, params object[] args)
+        {
+            _consoleColor = ConsoleColor.Yellow;
+            print(line, args);
+        }
+
         #endregion
 
         #region Reader: source -> token
@@ -403,7 +527,10 @@ namespace Urb
         public Stack<CompilerMode> compilerState = new Stack<CompilerMode>();
         public Stack<Exception> evaluationStack = new Stack<Exception>();
         public Stack<Stack<Exception>> Frames = new Stack<Stack<Exception>>();
-        public Dictionary<string, Exception> definedWords = new Dictionary<string, Exception>();
+        public Dictionary<string, Word> definedWords = new Dictionary<string, Word>()
+        {
+            { "dup", new Word() { isPrimitive = true, primitiveBody = Dup } }
+        };
 
         #endregion
 
