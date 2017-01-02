@@ -15,6 +15,196 @@ namespace Urb
 {
     public class Bailey
     {
+        public enum PreFixAnnotation
+        {
+            None,
+            Create,
+            PatternGuard
+        }                                              
+        private PreFixAnnotation _currentAnnotation = PreFixAnnotation.None;
+
+
+
+        #region Build Expression
+
+        private void BuildExpression(List<Token> tokens)
+        {
+            foreach(var token in tokens)
+            switch (token.type)
+            {
+                #region () []
+                case "separator":
+                    switch (token.value)
+                    {
+                        case "(": NewStackFrame(); break;
+                        case ")": CloseStackFrameToList(); break;
+                        default: evaluationStack.Push(InsertPrimitive(token)); break;
+                    }
+                    break;
+                #endregion
+                
+                default:
+                    var value = InsertPrimitive(token);
+                    evaluationStack.Push(value);
+                    print("stack << {0}:'{1}'\n", value.GetType().Name, Formatter(value));
+                    break;
+            }
+            /// Validate expression:
+            if (_open != _close) throw new Exception("'(' open not equal to close ')' !");
+        }
+        
+        #endregion
+
+        #region AST
+
+        /// Compiler                              
+        public class CompilerSleep : Exception { }
+        public class CompilerAwake : Exception { }
+
+        /// Specials                              
+        public class Attractor : Exception { }
+        public class Guard : Exception { }
+        public class Arrow : Exception { }
+        public class Backward : Exception { }
+
+        /// Operations
+        public class Add : Exception { }
+        public class Sub : Exception { }
+        public class Mul : Exception { }
+        public class Div : Exception { }
+        
+        /// Boolean
+        public class IsEqual : Exception { }
+        public class LesserThan : Exception { }
+        public class GreaterThan : Exception { }
+        public class LesserThanEqual : Exception { }
+        public class GreaterThanEqual : Exception { }
+        public class Or : Exception { }
+        public class And : Exception { }
+
+        /// Values
+        public class Integer : Exception { public int value { get; set; } }
+        public class Double : Exception { public double value { get; set; } }
+        public class Float : Exception { public float value { get; set; } }
+        public class Boolean : Exception { public bool value { get; set; } }
+        public class BString : Exception { public string value { get; set; } }
+        public class Symbol : Exception { public string name { get; set; } }
+
+        public class Empty : Exception { }
+        public class EmptyList : Exception { }
+
+        public Exception InsertPrimitive(Token token)
+        {
+            var value = token.value;
+            switch (token.type)
+            {
+                case "separator":
+                    switch (token.value)
+                    {
+                        case "[": return new CompilerSleep();
+                        case "]": return new CompilerAwake();
+                        default: throw new NotImplementedException();
+                    }
+                    break;
+                case "attractor": return new Attractor();
+                case "guard": return new Guard();
+                case "arrow": return new Arrow();
+                case "backward": return new Backward();
+                                                                        
+                case "operator":
+                    switch (token.value)
+                    {
+                        case "+": return new Add();
+                        case "-": return new Sub();
+                        case "*": return new Mul();
+                        case "/": return new Div();
+                        default: throw new NotImplementedException();
+                    }
+                case "boolean_compare":
+                    switch (token.value)
+                    {
+                        case ">": return new GreaterThan();
+                        case "<": return new LesserThan();
+                        case "=?": return new IsEqual();
+                        case ">=": return new GreaterThanEqual();
+                        case "<=": return new LesserThanEqual();
+                        default: throw new NotImplementedException();
+                    }
+                case "boolean_condition":
+                    switch (token.value)
+                    {
+                        case "||": return new And();
+                        case "&&": return new Or();                  
+                        default: throw new NotImplementedException();
+                    }
+
+                #region Values
+                case "Int32": return new Integer() { value = Int32.Parse(value) };
+                case "double": return new Double() {
+                        value = double.Parse(value.Substring(0, value.Length - 1))
+                    };
+                case "float":return new Float() {
+                        value = float.Parse(value.Substring(0, value.Length - 1))
+                    };
+                case "bool": return new Boolean() { value = value == "true" };
+                case "string": return new BString() { value = value };
+                case "symbol": return new Symbol() { name = value };
+
+                case "empty": return new Empty();
+                case "empty_list": return new EmptyList();
+                #endregion
+                
+                default:
+                    print("can't find so -> symbol {0} - '{1}'\n", token.type, value);
+                    return new Symbol() { name = value };
+                    //throw new NotImplementedException(token.type);
+            }
+        }
+
+        #endregion
+                
+        #region Formatter
+
+        public static string Formatter(Exception e)
+        {
+            try { throw e; }
+
+            #region Data
+            catch (Integer n) { return string.Format("{0}", n.value); }
+            catch (Float n) { return string.Format("{0}f", n.value); }
+            catch (Double n) { return string.Format("{0}d", n.value); }
+            catch (BString n) { return string.Format("{0}", n.value); }
+            catch (Boolean n) { return string.Format("{0}", n.value); }
+            catch (Symbol n) { return string.Format("{0}", n.name); }
+            catch (List n) { return string.Format("{0}", n.ToString()); }
+            catch (EmptyList n) { return "[]"; }
+            catch (Empty n) { return "_"; }
+            #endregion
+
+            /// Specials
+            catch (CompilerSleep n) { return "sleep"; }
+            catch (CompilerAwake n) { return "awake"; }
+
+            catch (Attractor a) { return ":"; }
+            catch (Guard g) { return "|"; }
+            catch (Arrow a) { return "->"; }
+            catch (Backward b) { return " <<"; }
+
+            /// Operations                                               
+            catch (Add n) { return "+"; }
+            catch (Sub n) { return "-"; }
+            catch (Mul n) { return "*"; }
+            catch (Div n) { return "/"; }
+            catch (GreaterThan n) { return ">"; }
+            catch (LesserThan n) { return "<"; }
+            catch (GreaterThanEqual n) { return ">="; }
+            catch (LesserThanEqual n) { return "<="; }
+            catch (IsEqual n) { return "=?"; }
+
+        }
+
+        #endregion
+           
         #region Syntax Table
         /********************
          *  Syntax Pattern. *
@@ -34,13 +224,15 @@ namespace Urb
             @"(?<forward>\>\>)|" +
             // backward
             @"(?<backward>\<\<)|" +
+            // empty
+            @"(?<empty>\\_)|" +
             // empty list
-            @"(?<empty>\[\])|" +
+            @"(?<empty_list>\[\])|" +
             // comma, () and []
             @"(?<separator>,|\(|\)|\[|\])|" +
             // string " "
             @"(?<String>\"".*?\"")|" +
-            
+
             // float 1f 2.0f
             @"(?<float>[-+]?[0-9]*\.?[0-9]+f)|" +
             // double 1d 2.0d
@@ -51,11 +243,13 @@ namespace Urb
             @"(?<bool>true|false)|" +
 
             // operators
-            @"(?<operator>\+\=|\-\=|\+|\-|\*|\/|\^)|" +
+            @"(?<operator>\+|\-|\*|\/|\^)|" +
 
             // boolean
             @"(?<boolean_compare>\>|\<|\=\?|\>=|\<=)|" +
             @"(?<boolean_condition>\|\||\&\&)|" +
+            // guard
+            @"(?<guard>\|)|" +
 
             // #Comments
             @"(?<comment>\=\=.*\n)|" +
@@ -66,6 +260,30 @@ namespace Urb
             // the rest.
             @"(?<invalid>[^\s]+)";
         #endregion
+           
+        #region REPL
+
+        public void Repl(string source)
+        {
+            var tokens = Reader(source);
+
+            BuildExpression(tokens);
+                       
+            PrintStack();
+        }
+
+        public void PrintStack()
+        {
+            Console.Write("[ ");
+            foreach (var e in evaluationStack)
+            {
+                var acc = Formatter(e as Exception);
+                Console.Write("{0} ", acc);
+            }
+            Console.Write(" ]");
+        }
+
+        #endregion         
 
         #region Line Helper
 
@@ -89,6 +307,13 @@ namespace Urb
             Console.ForegroundColor = backup;
         }
 
+        private static void note(string line, params object[] args)
+        {
+            var backup = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
+            Console.Write(line, args);
+            Console.ForegroundColor = backup;
+        }
         #endregion
 
         #region Reader: source -> token
@@ -134,30 +359,32 @@ namespace Urb
         #region List
 
         [Serializable]
-        public class List : List<object>
+        public class List : Exception
         {
-
-            public List(object[] collection, bool isReversed = false)
+            public List<Exception> cells { get; set; }
+            public List(Exception[] collection, bool isReversed = false)
             {
+                cells = new List<Exception>();
                 // reverse mode.
-                if (isReversed) this.AddRange(collection);
+                if (isReversed) cells.AddRange(collection);
                 else // reserved mode.
                     for (int i = collection.Length - 1; i > -1; i--)
-                        this.Add(collection[i]);
+                        cells.Add(collection[i]);
             }
 
-            public List(IEnumerable<object> collection) : base(collection)
+            public List(IEnumerable<Exception> collection)
             {
+                cells = new List<Exception>(collection);
             }
 
             public override string ToString()
             {
                 var acc = new StringBuilder();
                 acc.Append("[");
-                foreach (var e in this)
+                foreach (var e in cells)
                 {
                     acc.Append(string.Format(
-                        "{0} ", e.ToString()));
+                        "{0} ", Formatter(e)));
                 }
                 acc.Append("]");
                 return acc.ToString();
@@ -165,41 +392,8 @@ namespace Urb
         }
 
         #endregion
-
-        #region Typing
-
-        public class Integer : Exception { public int value { get; set; } }
-        public class Double : Exception { public double value { get; set; } }
-        public class Float : Exception { public float value { get; set; } }
-        public class Boolean : Exception { public bool value { get; set; } }
-        public class BString : Exception { public string value { get; set; } }
-        public class Symbol : Exception { public string name { get; set; } }
-
-        public Exception BuildValueType(Token token)
-        {
-            var value = token.value;
-            switch (token.type)
-            {
-                case "integer": return new Integer() { value = Int32.Parse(value) };
-                case "double": return new Double() {
-                    value = double.Parse(value.Substring(0, value.Length - 1))
-                };
-                case "float": return new Float() {
-                    value = float.Parse(value.Substring(0, value.Length - 1))
-                };
-                case "bool": return new Boolean() { value = value == "true" };
-                case "string": return new BString() { value = value };
-                case "symbol": return new Symbol() { name = value }; 
-                default:
-                    print("can't find so -> symbol {0}\n", token.type);
-                    return new Symbol() { name = value };
-                    //throw new NotImplementedException(token.type);
-            }
-        }
-
-        #endregion
-
-        #region Data
+                
+        #region Compiler Mode / Stack / Words
 
         public enum CompilerMode
         {
@@ -207,55 +401,36 @@ namespace Urb
         }
         public CompilerMode compilerMode = CompilerMode.Awake; // by default. //
         public Stack<CompilerMode> compilerState = new Stack<CompilerMode>();
-        public Stack<object> evaluationStack = new Stack<object>();
-        public Stack<Stack<object>> Frames = new Stack<Stack<object>>();
-        public Dictionary<string, object> userVars = new Dictionary<string, object>();
+        public Stack<Exception> evaluationStack = new Stack<Exception>();
+        public Stack<Stack<Exception>> Frames = new Stack<Stack<Exception>>();
+        public Dictionary<string, Exception> definedWords = new Dictionary<string, Exception>();
 
         #endregion
 
-        #region Formatter
+        #region Stack Frame
 
-        public string Value2String(Exception e)
-        {
-            try { throw e; }
-            catch (Integer n) {return string.Format("{0}", n.value); }
-            catch (Float n) { return string.Format("{0}f", n.value); }
-            catch (Double n) { return string.Format("{0}d", n.value); }
-            catch (BString n) { return string.Format("{0}", n.value); }
-            catch (Boolean n) { return string.Format("{0}", n.value); }
-            catch (Symbol n) { return string.Format("{0}", n.name); }
-        }
+        private int _open = -1;
+        private int _close = -1;
 
-        #endregion
-
-        public void Repl(string source)
-        {
-            var tokens = Reader(source);
-
-            foreach (var token in tokens)
-            {
-                EatToken(token, userVars);
-            }
-
-            PrintStack();
-        }
-                
         public void NewStackFrame()
         {
             /// create new stack frame.
             Frames.Push(evaluationStack);
-            evaluationStack = new Stack<object>();
+            evaluationStack = new Stack<Exception>();
+            _open++;
         }
 
         public void CloseStackFrameToList()
         {
+            if (_open <= _close) throw new Exception("Lacking open (..)");
             /// acc all current stack frame into a list.
             var lst = new List(evaluationStack.ToArray());
             evaluationStack = Frames.Pop();
             evaluationStack.Push(lst);
+            _close++;
         }
 
-        public void CloseStackFrameToStack()
+        public void AppendStackFrameToStack()
         {
             var store = Frames.Pop();
             foreach (var o in evaluationStack)
@@ -265,13 +440,16 @@ namespace Urb
             evaluationStack = store;
         }
 
-        private void ChangeCompilerState(CompilerMode next_state)
+        #endregion
+
+        #region Compiler State
+                     
+        private void ChangeCompilerState(CompilerMode next_state = CompilerMode.Sleep)
         {
             // store current state.
             compilerState.Push(compilerMode);
             compilerMode = next_state;
-            if (compilerMode == CompilerMode.Sleep)
-                _print("[compiler] Slept.");
+            note("<compiler_{0}>\n", compilerMode.ToString().ToLower());
         }
 
         private void RestoreCompilerState(bool isForced = false)
@@ -279,83 +457,20 @@ namespace Urb
             if (isForced)
             {
                 compilerMode = CompilerMode.Awake;
-                compilerState.Clear();
-                _print("[compiler] Awaken.");
+                compilerState.Clear();           
                 return;
             }
-            if (compilerState.Count > 0)
+            else if (compilerState.Count > 0)
+            {
                 compilerMode = compilerState.Pop();
-            else {
-                compilerMode = CompilerMode.Awake;
-                _print("[compiler] Awaken.");
             }
-        }
-
-        public enum PreFixAnnotation
-        {
-            Create,
-            PatternGuard
-        }
-
-        private void EatToken(Token token, Dictionary<string, object> env)
-        {
-            switch (token.type)
+            else
             {
-                #region () []
-                case "separator":
-                    switch (token.value)
-                    {
-                        case "(":
-                            ChangeCompilerState(CompilerMode.Sleep);
-                            NewStackFrame();
-                            break;
-                        case ")":
-                            RestoreCompilerState();
-                            CloseStackFrameToList();
-                            break;
-
-                        case "[": NewStackFrame(); break;
-                        case "]": CloseStackFrameToStack(); break;
-                        default: /// ignoring.
-                            break;
-                    }
-                    break;
-                #endregion
-
-                case "attractor":
-                    /// 1. Get next literal as signature.
-                    /// 2. Assign name for this whole block.
-
-                case "backward":
-                case "forward":
-                case "arrow":
-                    
-                case "boolean_compare":
-                case "operator":
-                case "literal":// break;
-
-                default:
-                    print("stack << {0}:'{1}'\n", token.type, token.value);
-                    var value = BuildValueType(token);
-                    evaluationStack.Push(value);
-                    break;
-            }
-        }
-        
-        public void PrintStack()
-        {
-            Console.Write("[ ");
-            foreach (var e in evaluationStack)
-            {
-                string acc = String.Empty;
-                if (e.GetType().IsSubclassOf(typeof(Exception)))
-                    acc = Value2String(e as Exception);
-                else acc = e.ToString();
-                Console.Write("{0} ", acc);
-            }
-            Console.Write(" ]");
+                compilerMode = CompilerMode.Awake;     
+            }                                      
+            note("<compiler_{0}>\n", compilerMode.ToString().ToLower());
         }
 
-
+        #endregion
     }
 }
