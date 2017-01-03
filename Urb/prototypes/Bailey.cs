@@ -33,14 +33,22 @@ namespace Urb
             {
                 Evaluate(e, expression, dict);
                 if (annotation == Annotation.DoneCreation) break;
-            }                                    
+            }
+            // reset annotation.
+            annotation = Annotation.None;                                    
         }
 
         private void Evaluate(Exception e, List body, Dictionary<string, Word> dict)
         {
             try { throw e; }
+            catch (Word w)
+            {
+                /// Do something about it ?
+                if (w.isPrimitive) w.primitiveBody.Invoke(evaluationStack, dict);
+            }
             catch (Attractor a) { annotation = Annotation.InitCreation; }
-            catch (Symbol s) {
+            catch (Symbol s)
+            {
                 /// 1. check annotation: None ? Create ? Guard ?      
                 /// 3. wonder if it's create mode ? => analyze signature.
                 /// 3. wonder if dict got s ? => fetch value.
@@ -67,7 +75,7 @@ namespace Urb
                         {
                             /// mean it got type info.          
                             throw new NotImplementedException();
-                        }             
+                        }
                         else
                         {
                             /// just normal.
@@ -84,19 +92,15 @@ namespace Urb
                         break;
                 }
             }
-            catch (Add op) {  }
-            catch (Div op) {  }
-            catch (Mul op) {  }
-            catch (Sub op) {  }
+            //catch (Add op) { }
+            //catch (Div op) { }
+            //catch (Mul op) { }
+            //catch (Sub op) { }
 
             catch (Integer i) { evaluationStack.Push(i); }
             catch (Double i) { evaluationStack.Push(i); }
             catch (Float i) { evaluationStack.Push(i); }
-
             catch (BString i) { evaluationStack.Push(i); }
-
-
-
             catch (Boolean i) { evaluationStack.Push(i); }
         }
 
@@ -104,7 +108,7 @@ namespace Urb
 
         #region Primitives 
 
-        public static void Dup(Stack<Exception> e, Dictionary<string,Exception> dict)
+        public static void Dup(Stack<Exception> e, Dictionary<string,Word> dict)
         {
             e.Push(e.Peek());
         }
@@ -117,7 +121,7 @@ namespace Urb
         {
             public bool isPrimitive = false;
             public List customBody { get; set; }
-            public Action<Stack<Exception>, Dictionary<string, Exception>> primitiveBody;
+            public Action<Stack<Exception>, Dictionary<string, Word>> primitiveBody;
 
             public override string ToString()
             {
@@ -158,7 +162,7 @@ namespace Urb
                 var built = new Stack<Exception>();
                 var total = _open + 1;
                 note("built total {0} expression{1}.\n", _open+1, _open > 1 ? "s" : "");
-                _open = _close = 0; /// Clear state.
+                _open = _close = -1; /// Clear state.
                 while(total > 0)
                 {
                     built.Push(evaluationStack.Pop());
