@@ -21,15 +21,17 @@
 ===> using System;
 ===> using System.IO;
 
-(open sun planet)
+(natural sun death star)
 (Object blueprint)
 
 == we don't want to use comma.
-== new instance:
-(:dict (Dictionary<string/string> warp))
+== new instance as member of class is module:
+(:dict module (Dictionary<string/string> warp))
 
 == primitives types: Int32, Float, Double, Bool, String, Symbol
 == data types: List, Stack
+
+== normal method is static by default and is called "ship".
 
 (:isDebug false) => public static bool isDebug = false;
 (:numbers 1 2 3) => public static List<Int32> listA = List<Int32>(){1, 2, 3};
@@ -91,12 +93,13 @@
 ===>     }
 ===> }
 
+== external call to other "star" will be prefix with coop:
 
 == strong typed depend on type inference.
 == different types in pattern matching will be divided into overloads.
 (:print  
-    | String/str              ->     str Console.WriteLine
-    | String/str object[]/arg -> str arg Console.WriteLine )
+    | String/str              ->     str coop:Console.WriteLine
+    | String/str object[]/arg -> str arg coop:Console.WriteLine )
 ==> ________________________________________________________
 ===> public static void print (String str, object[] arg) {
 ===>     Console.WriteLine (str, arg);
@@ -110,8 +113,8 @@
 == label help shorten lengthy variables.
 (:set-position 
     | 0f 0f 0f -> ignore
-    | x  y  z  -> [transform.position] p label 
-                  p.x x + p.y y + p.z z + Vector3 new p << )
+    | x  y  z  -> [coop:transform.position] p label 
+                  p.x x + p.y y + p.z z + Vector3 warp p << )
 ==> ________________________________________________________
 ===> public static void set_position (float x, float y, float z){
 ===>     if(x == y == z == 0) return;
