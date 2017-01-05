@@ -16,13 +16,13 @@
 (System gateway)
 
 == mapping function as 1st class.
-(System System.IO [ explore ] map)
+(System System.IO [ waypoint ] map)
 ==> ____________________________
 ===> using System;
 ===> using System.IO;
 
 (open sun planet)
-(Object ecosystem)
+(Object blueprint)
 
 == we don't want to use comma.
 == new instance:
