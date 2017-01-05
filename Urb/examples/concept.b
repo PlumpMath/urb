@@ -21,7 +21,7 @@
 ===> using System;
 ===> using System.IO;
 
-(natural sun death star)
+(natural sun live star)
 (Object blueprint)
 
 == we don't want to use comma.
@@ -124,3 +124,14 @@
 ===>             transform.position.y + y,
 ===>             transform.position.z + z);
 ===> }
+
+
+== bailey will build ships and stars by command in script.
+== as interactive repl is its default feature already.
+== we just build things for speed !
+
+== build ship
+(:print :square construct)
+
+== or build a whole death star
+(:concept construct)
