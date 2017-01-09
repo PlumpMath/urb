@@ -6,6 +6,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Linq.Expressions;
+using LExpression = System.Linq.Expressions.Expression;
 using System.CodeDom;
 using Token = Urb.Token;
 using Atom = Urb.Atom;
@@ -29,13 +30,16 @@ namespace Urb
 
         private void Evaluate(List expression, Dictionary<string, Word> dict)
         {
+            var steps = 0;
             foreach (var e in expression.cells)
             {
+                steps++;
                 Evaluate(e, expression, dict);
                 if (annotation == Annotation.DoneCreation) break;
             }
             // reset annotation.
-            annotation = Annotation.None;                                    
+            annotation = Annotation.None;
+            warning("{0} {1}.\n\n", steps, steps > 1 ? "steps" : "step");                                   
         }
 
         private void Evaluate(Exception e, List body, Dictionary<string, Word> dict)
@@ -44,9 +48,22 @@ namespace Urb
             catch (Word w)
             {
                 /// Do something about it ?
-                if (w.isPrimitive) w.primitiveBody.Invoke(evaluationStack, dict);
+                if (w.isPrimitive)
+                {
+                    w.primitiveBody.Invoke(evaluationStack, dict);
+                    note("[primitive] {0}\n", w);
+                }
+                else
+                {
+                    Evaluate(w.customBody, dict);
+                    note("[defined] {0}", w);
+                }
             }
-            catch (Attractor a) { annotation = Annotation.InitCreation; }
+            catch (Attractor a)
+            {
+                annotation = Annotation.InitCreation;
+                warning("[attractor]");
+            }
             catch (Symbol s)
             {
                 /// 1. check annotation: None ? Create ? Guard ?      
@@ -60,6 +77,7 @@ namespace Urb
                         {
                             /// Eval it !
                             Evaluate(dict[s.name], body, dict);
+                            note("evaluated {0}", s.name);
                         }
                         else
                         {
@@ -71,20 +89,32 @@ namespace Urb
                     case Annotation.InitCreation:
                         /// Analyze symbol:
                         var signature = s.name;
+                        string fn;
+                        Word word;
                         if (signature.Contains("/"))
                         {
                             /// mean it got type info.          
-                            throw new NotImplementedException();
+                            var _Fn_Args = signature.Split(
+                                new String[] { "/" }, 
+                                StringSplitOptions.RemoveEmptyEntries);
+                            print("signature: {0} / {1}\n", _Fn_Args);
+                            fn = _Fn_Args[0];
+                            word = new Word()
+                            {
+                                signature = _Fn_Args,
+                                customBody = new List(body.cells)
+                            };                             
                         }
                         else
                         {
-                            /// just normal.
-                            var word = new Word() { customBody = new List(body.cells) };
-                            word.customBody.cells.Remove(s);
-                            dict.Add(signature, word);
-                            evaluationStack.Push(word);
-                            annotation = Annotation.DoneCreation;
-                        }
+                            /// no parameter info. ///
+                            fn = s.name;
+                            word = new Word() { customBody = new List(body.cells) };
+                        }                                    
+                        word.customBody.cells.Remove(s);
+                        dict.Add(fn, word);
+                        evaluationStack.Push(word);
+                        annotation = Annotation.DoneCreation;
                         break;
 
                     case Annotation.InitGuard:
@@ -94,7 +124,25 @@ namespace Urb
             }
             //catch (Add op) { }
             //catch (Div op) { }
-            //catch (Mul op) { }
+            catch (Mul op) {                
+                var left = evaluationStack.Pop();
+                var right = evaluationStack.Pop();
+                if (left is Integer && right is Integer)
+                {
+                    var result = BuildOperator<Int32>((left as Integer).value, ((right as Integer).value), op);
+                    evaluationStack.Push(new Integer() { value = result });
+                }
+                else if (left is Float && right is Float)
+                {
+                    var result = BuildOperator<float>((left as Float).value, ((right as Float).value), op);
+                    evaluationStack.Push(new Float() { value = result });
+                }
+                else if (left is Double && right is Double)
+                {
+                    var result = BuildOperator<double>((left as Double).value, ((right as Double).value), op);
+                    evaluationStack.Push(new Double() { value = result });
+                }
+            }
             //catch (Sub op) { }
 
             catch (Integer i) { evaluationStack.Push(i); }
@@ -107,10 +155,38 @@ namespace Urb
         #endregion
 
         #region Primitives 
+        public static T BuildOperator<T>(T a, T b, Exception op)
+        {
+            //TODO: re-use delegate!
+            // declare the parameters
+            ParameterExpression paramA = LExpression.Parameter(typeof(T), "a"),
+                                paramB = LExpression.Parameter(typeof(T), "b");
+            // add the parameters together
+            BinaryExpression body;
+            try { throw op; }
+            catch (Add n) { body = LExpression.Add(paramA, paramB); }
+            catch (Sub n) { body = LExpression.Subtract(paramA, paramB); }
+            catch (Div n) { body = LExpression.Divide(paramA, paramB); }
+            catch (Mul n) { body = LExpression.Multiply(paramA, paramB); }
+            // compile it
+            Func<T, T, T> f = LExpression.Lambda<Func<T, T, T>>(body, paramA, paramB).Compile();
+            // call it
+            return f(a, b);
+        }
 
         public static void Dup(Stack<Exception> e, Dictionary<string,Word> dict)
         {
             e.Push(e.Peek());
+        }
+
+        public static void DefinedWords(Stack<Exception> e, Dictionary<string, Word> dict)
+        {
+            var i = 1;
+            foreach(var word in dict)
+            {
+                warning("{0}. {1}\n", i, word.Key);
+                i++;
+            }
         }
 
         #endregion
@@ -120,6 +196,9 @@ namespace Urb
         public class Word : Exception
         {
             public bool isPrimitive = false;
+
+            public string[] signature { get; set; }
+
             public List customBody { get; set; }
             public Action<Stack<Exception>, Dictionary<string, Word>> primitiveBody;
 
@@ -152,7 +231,7 @@ namespace Urb
                     default:
                         var value = InsertPrimitive(token);
                         evaluationStack.Push(value);
-                        print("stack < {0}:'{1}'\n", value.GetType().Name, Formatter(value));
+                        note("stack < {0}:'{1}'\n", value.GetType().Name, Formatter(value));
                         break;
                 }
             /// Validate expression:
@@ -161,7 +240,7 @@ namespace Urb
             {
                 var built = new Stack<Exception>();
                 var total = _open + 1;
-                note("built total {0} expression{1}.\n", _open+1, _open > 1 ? "s" : "");
+                print("built {0} expression{1}.\n", _open+1, _open > 1 ? "s" : "");
                 _open = _close = -1; /// Clear state.
                 while(total > 0)
                 {
@@ -533,7 +612,8 @@ namespace Urb
         public Stack<Stack<Exception>> Frames = new Stack<Stack<Exception>>();
         public Dictionary<string, Word> definedWords = new Dictionary<string, Word>()
         {
-            { "dup", new Word() { isPrimitive = true, primitiveBody = Dup } }
+            { "dup", new Word() { isPrimitive = true, primitiveBody = Dup } } ,
+            { "defined-word", new Word() { isPrimitive = true, primitiveBody = DefinedWords } }
         };
 
         #endregion
