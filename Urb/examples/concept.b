@@ -13,20 +13,19 @@
 
 
 == load assembly
-(System gateway)
+(System load)
 
 == mapping function as 1st class.
-(System System.IO [ waypoint ] map)
+(System System.IO [ using ] map)
 ==> ____________________________
 ===> using System;
 ===> using System.IO;
 
-(natural sun live star)
-(Object blueprint)
+(Object extend)
 
 == we don't want to use comma.
 == new instance as member of class is module:
-(:dict module (Dictionary<string/string> warp))
+(:dict module (Dictionary<string/string> new))
 
 == primitives types: Int32, Float, Double, Bool, String, Symbol
 == data types: List, Stack
@@ -98,8 +97,8 @@
 == strong typed depend on type inference.
 == different types in pattern matching will be divided into overloads.
 (:print  
-    | String/str              ->     str coop:Console.WriteLine
-    | String/str object[]/arg -> str arg coop:Console.WriteLine )
+    | String/str              ->     str Console.WriteLine
+    | String/str object[]/arg -> str arg Console.WriteLine )
 ==> ________________________________________________________
 ===> public static void print (String str, object[] arg) {
 ===>     Console.WriteLine (str, arg);
@@ -113,8 +112,8 @@
 == label help shorten lengthy variables.
 (:set-position 
     | 0f 0f 0f -> ignore
-    | x  y  z  -> [coop:transform.position] p label 
-                  p.x x + p.y y + p.z z + Vector3 warp p << )
+    | x  y  z  -> [transform.position] p label 
+                  p.x x + p.y y + p.z z + Vector3 new p << )
 ==> ________________________________________________________
 ===> public static void set_position (float x, float y, float z){
 ===>     if(x == y == z == 0) return;
@@ -126,12 +125,12 @@
 ===> }
 
 
-== bailey will build ships and stars by command in script.
+== bailey will build functions and class by command in script.
 == as interactive repl is its default feature already.
 == we just build things for speed !
 
 == build ship
-(:print :square construct)
+(:print :square compile)
 
 == or build a whole death star
-(:concept construct)
+(:concept compile)
